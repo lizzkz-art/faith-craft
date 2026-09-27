@@ -333,3 +333,58 @@ export const PHRASES = {
 };
 export const LEVEL_NAMES = ["", "Easy", "Medium", "Hard"];
 export const BLOCK_HOTBAR = [8, 1, 2, 3, 4, 5, 6, 10, 9, 11, 12, 14];
+
+// ---------- Talk menu (all lines are pre-recorded; no free chat) ----------
+// hints: [not started, ...one per step..., done]. "giver" = said by the mission character (first person),
+// "helper" = said by Ruth, villagers, or the brothers (about the mission).
+export const TALK = {
+  labels: { again: "Tell me the mission again.", next: "What do I do next?", story: "Tell me the story.", verse: "Say a Bible verse.", bye: "Goodbye.", replay: "Hear the mission again.", start: "Start the mission.", finish: "Finish the mission.", bread: "Give bread.", grain: "Give grain.", hello: "Say hello." },
+  open: "What would you like to talk about?",
+  noCatch: "Hmm, I didn’t catch that. You can tap a button, or try again!",
+  bye: "Goodbye, friend! Come back any time.",
+  verseLead: "Here is a verse from the Bible.",
+  allDone: "You finished every mission! You can build anything you like.",
+  allDoneStory: "The Bible is full of true stories about God and His people. You helped in every one of them here. Great job!",
+  ruthVerse: "ps119_105",
+  hints: {
+    noah: {
+      giver: ["I need your help to build the ark. Tap the star button to start!", "Put wood planks in the glowing box by the ark. Pick the planks at the bottom, then tap Place.", "Walk close to a sheep, and it will follow you. Then walk into the ark. We need two sheep.", "Now we need two cows. Walk close to a cow, then lead it into the ark.", "The animals are in! Tap the star button, and we will finish the ark.", "The ark is done, and the animals are safe. Thank you! Look for the rainbow in the sky."],
+      helper: ["Noah needs help to build the ark. Look for him. He has a gold mark over his head.", "Put wood planks in the glowing box by the ark.", "Lead two sheep into the ark. Walk close to a sheep, and it will follow you.", "Lead two cows into the ark.", "Go back and talk to Noah.", "You helped Noah build the ark. Great job!"],
+    },
+    david: {
+      giver: ["I need five smooth stones from the brook. Tap the star button to help me.", "Look on the sandy bank by the brook. Walk over the shiny stones to pick them up.", "You have all five stones! Tap the star button to give them to me.", "We found all five stones. Thank you, brave friend!"],
+      helper: ["David needs help. Look for him by the brook.", "Find five smooth stones on the sandy bank of the brook.", "Take the stones back to David.", "You helped David find five smooth stones. Great job!"],
+    },
+    moses: {
+      giver: ["Will you climb the mountain for me? Tap the star button to start.", "Climb up the mountain. Follow the arrow, and jump up the blocks. The top has snow on it.", "Look at the very top. Walk to the stone tablets to pick them up.", "You have the tablets! Bring them to me, then tap the star button.", "You brought the tablets down. God’s Word is like a lamp for our path."],
+      helper: ["Moses needs help. Look for him by the big mountain.", "Climb to the top of the mountain. Follow the arrow.", "Pick up the stone tablets at the top.", "Take the tablets down to Moses.", "You helped Moses bring down the tablets. Great job!"],
+    },
+    samaritan: {
+      giver: ["Ow, my leg hurts. Please tap the star button to help me.", "Please get a jar of water. It is at the well in the village. Follow the arrow.", "Now please find bandages. They are inside the inn.", "You have the water and bandages! Tap the star button to help me.", "My leg feels so much better. Thank you for stopping to help me."],
+      helper: ["A man is hurt on the road. Look for him, and help him.", "Get a jar of water from the well in the village.", "Find the bandages inside the inn.", "Take the water and bandages to the hurt man.", "You helped the hurt man on the road. That was so kind!"],
+    },
+    loaves: {
+      giver: ["So many people are hungry. Tap the star button to help me.", "Give bread to three hungry people. Look for the bread sign over their heads. Walk up to each one and tap the star button.", "Everyone has bread! Tap the star button to tell me about it.", "Everyone ate until they were full. Thank you for sharing!"],
+      helper: ["Andrew needs help. Look for him in the village.", "Give bread to three hungry people. Look for the bread sign over their heads.", "Go back to Andrew, and talk to him.", "You shared bread with everyone. Great job!"],
+    },
+    joseph: {
+      giver: ["My brothers need food. Tap the star button to help me.", "Get three sacks of grain from the storehouse. It is the brick building in the desert.", "Next, give grain to my three brothers. Walk up to each one and tap the star button.", "My brothers have food! Tap the star button to finish.", "My family is together again. Thank you, friend!"],
+      helper: ["Joseph needs help. Look for him in the desert.", "Get three sacks of grain from the brick storehouse.", "Give grain to the three brothers.", "Go back and talk to Joseph.", "You helped Joseph forgive his brothers. Great job!"],
+    },
+    honesty: {
+      giver: ["My fence has a hole in it. Tap the star button to talk with me about it.", "My lost sheep is out in the field. Walk close to it, and lead it back into the pen.", "Next, please fix the fence. Place six blocks in the glowing gap.", "The fence is fixed! Tap the star button to finish.", "My fence is fixed, and my sheep is safe. Thank you for telling the truth."],
+      helper: ["Micah the farmer needs help. Look for him by his sheep pen.", "Find the lost sheep, and lead it back into the pen.", "Fix the fence. Place six blocks in the glowing gap.", "Go back and talk to Micah.", "You told the truth and fixed the fence. Great job!"],
+    },
+  },
+  stories: {
+    noah: { giver: "God told me to build a big boat called an ark. I obeyed God, and I built it. My family and the animals went in, and the ark kept us safe in the flood. Then God put a rainbow in the sky as His promise.", helper: "God told Noah to build a big boat called an ark. Noah did just what God said. His family and the animals went in, and the ark kept them safe in the flood. Then God put a rainbow in the sky as His promise." },
+    david: { giver: "I was a young shepherd boy. A giant named Goliath made everyone afraid. I trusted God, and I was brave. God helped me win, and He can help you be brave too.", helper: "David was a young shepherd boy. A giant named Goliath made everyone afraid. David trusted God and was brave. God helped David win." },
+    moses: { giver: "God called me to lead His people out of Egypt. I was afraid, because talking was hard for me. God said He would help me speak. On the mountain, God gave me His good rules on stone tablets.", helper: "God called Moses to lead His people. Moses was afraid, because talking was hard for him. God said He would help him speak. On the mountain, God gave Moses His good rules on stone tablets." },
+    samaritan: { giver: "Jesus told a story about a man like me. I got hurt on a road, and two men walked past. Then a kind Samaritan stopped to help me. Jesus wants us to help like that too.", helper: "Jesus told a story about a man who got hurt on a road. Two men walked past him. Then a kind Samaritan stopped to help. Jesus wants us to help like that too." },
+    loaves: { giver: "One day, a big crowd came to hear Jesus, and they got hungry. A boy shared his lunch of five loaves and two fish. Jesus thanked God, and there was food for everyone. There were even twelve baskets left over!" },
+    joseph: { giver: "My brothers were jealous of me, and they sent me away to Egypt. But God was with me, and I became a leader there. When my brothers came for food, I forgave them. God turned something bad into something good.", helper: "Joseph’s brothers were jealous of him, and they sent him away to Egypt. But God was with Joseph, and he became a leader there. When his brothers came for food, Joseph forgave them. God turned something bad into something good." },
+    honesty: { giver: "The Bible says God is glad when we tell the truth. When we make a mistake, we can say sorry and help fix it. Being honest helps friends trust each other." },
+  },
+};
+// Which mission a helper character talks about
+export const HELPER_QUEST = { hungry1: "loaves", hungry2: "loaves", hungry3: "loaves", bro1: "joseph", bro2: "joseph", bro3: "joseph" };

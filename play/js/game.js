@@ -2,7 +2,7 @@ import * as THREE from '../lib/three.module.js';
 import { makeAtlas, blockIcon } from './textures.js';
 import { World, W, D, H, CS, B, BLOCKS, PLACES, meshChunk, brookX } from './world.js';
 import * as E from './entities.js';
-import { NPCS, QUESTS, QUEST_ORDER, NPC_LINES, BLOCK_HOTBAR, HELLOS, PHRASES } from './data.js';
+import { NPCS, QUESTS, QUEST_ORDER, NPC_LINES, BLOCK_HOTBAR, HELLOS, PHRASES, TALK } from './data.js';
 import { Music } from './music.js';
 import { state, loadState, saveState, loadWorldEdits, saveWorld } from './save.js';
 import * as UI from './ui.js';
@@ -19,7 +19,7 @@ const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPrefer
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
 const scene = new THREE.Scene();
 const SKY = 0xa8d8ff; scene.background = new THREE.Color(SKY); scene.fog = new THREE.Fog(SKY, 32, 72);
-const camera = new THREE.PerspectiveCamera(70, 1, 0.08, 220); camera.rotation.order = 'YXZ';
+const camera = new THREE.PerspectiveCamera(70, 1, 0.1, 220); camera.rotation.order = 'YXZ';
 scene.add(new THREE.HemisphereLight(0xffffff, 0x8a9a70, 2.0));
 const sun = new THREE.DirectionalLight(0xffffff, 1.4); sun.position.set(0.5, 1, 0.3); scene.add(sun);
 function resize() { const w = window.innerWidth, h = window.innerHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
@@ -151,7 +151,7 @@ function burst(x, y, z, color, n = 10, up = 3) {
   while (parts.length > 60) { const m = parts.shift(); scene.remove(m); }
 }
 // quick "pop" outline when a block is placed or broken
-const popBox = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(1, 1, 1)), new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0 })); popBox.visible = false; scene.add(popBox); let popT = 0;
+const popBox = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(1.02, 1.02, 1.02)), new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0 })); popBox.visible = false; scene.add(popBox); let popT = 0;
 function popAt(x, y, z) { popBox.position.set(x + 0.5, y + 0.5, z + 0.5); popT = 0.28; popBox.visible = true; }
 const KIND = b => (b === 4 || b === 8) ? 'wood' : (b === 1 || b === 2 || b === 5 || b === 6 || b === 12 || b === 13) ? 'soft' : 'solid';
 const BCOL = { 1: 0x6aaa46, 2: 0x86603f, 3: 0x808080, 4: 0x70522f, 5: 0x3e8a30, 6: 0xded096, 8: 0xb8925c, 9: 0xf0c432, 10: 0xdff6ff, 11: 0xac4c3c, 12: 0xf0f0ec, 13: 0xfafaff, 14: 0x767676, 15: 0xe2ded4 };
@@ -403,12 +403,12 @@ function updateHUD() {
   const Q = curQ(); const tr = $('#tracker');
   $('#starcount').textContent = state.stars;
   const key = Q ? state.active + ':' + qs(state.active).step : 'explore';
-  if (!Q) { if (tr.dataset.k !== key) { tr.dataset.k = key; tr.innerHTML = `<button class="tr-say" aria-label="Hear it">🔊</button><div class="tq">Explore!</div><div class="tstep">Find a person with a gold <b>!</b> and talk to them.</div>`; } return; }
+  if (!Q) { if (tr.dataset.k !== key) { tr.dataset.k = key; tr.innerHTML = `<button class="tr-say" aria-label="Hear it"><svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path fill="currentColor" d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 8v8a4.5 4.5 0 0 0 2.5-4zM14 3.2v2.1a7 7 0 0 1 0 13.4v2.1a9 9 0 0 0 0-17.6z"/></svg></button><div class="tq">Explore!</div><div class="tstep">Find a person with a gold <b>!</b> and talk to them.</div>`; } return; }
   const s = qs(state.active); const st = curStep(); const [n, c] = stepCount(st);
   const frac = (s.step + (st && st.type !== 'talk' ? n / Math.max(1, c) : 0)) / Q.steps.length;
   if (tr.dataset.k === key && tr.querySelector('.tlist')) { const b = tr.querySelector('li.cur b'); if (b && st && st.label) b.textContent = `${st.label}: ${n}/${c}`; tr.querySelector('.tbar div').style.width = Math.round(frac * 100) + '%'; return; }
   tr.dataset.k = key;
-  tr.innerHTML = `<button class="tr-say" aria-label="Hear it">🔊</button><div class="tq">${Q.title}</div><ol class="tlist">${Q.steps.map((x, i) => `<li class="${i < s.step ? 'done' : i === s.step ? 'cur' : ''}"><span class="dot">${i < s.step ? '✓' : i + 1}</span><span>${x.text}${i === s.step && x.label ? ` <b>${x.label}: ${n}/${c}</b>` : ''}</span></li>`).join('')}</ol><div class="tbar"><div style="width:${Math.round(frac * 100)}%"></div></div>`;
+  tr.innerHTML = `<button class="tr-say" aria-label="Hear it"><svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path fill="currentColor" d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 8v8a4.5 4.5 0 0 0 2.5-4zM14 3.2v2.1a7 7 0 0 1 0 13.4v2.1a9 9 0 0 0 0-17.6z"/></svg></button><div class="tq">${Q.title}</div><ol class="tlist">${Q.steps.map((x, i) => `<li class="${i < s.step ? 'done' : i === s.step ? 'cur' : ''}"><span class="dot">${i < s.step ? '✓' : i + 1}</span><span>${x.text}${/[.!?]$/.test(x.text) ? '' : '.'}${i === s.step && x.label ? `<b class="tcount">${x.label}: ${n}/${c}</b>` : ''}</span></li>`).join('')}</ol><div class="tbar"><div style="width:${Math.round(frac * 100)}%"></div></div><button class="tr-replay" aria-label="Hear the mission again"><span aria-hidden="true">🔁</span> Hear the mission again</button>`;
 }
 function trackerSay() { const st = curStep(); Speech.speak(st ? st.text + '.' : 'Find a person with a gold mark, and talk to them.', {}); }
 function bumpStars() { const el = $('#stars'); el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); }
@@ -442,6 +442,8 @@ const G = {
   setUIOpen(v) { uiOpen = v || !$('#overlay').classList.contains('hidden') || !$('#dialog').classList.contains('hidden') || !!document.querySelector('.modal'); if (uiOpen && document.pointerLockElement) document.exitPointerLock(); hud.classList.toggle('uiopen', uiOpen); input.f = input.s = 0; input.jump = false; },
   afterScreenClose() { if (G.mode === 'title') UI.title(); else { G.setUIOpen(false); updateHUD(); } },
   startPlay() { G.mode = 'play'; state.started = true; saveState(); hud.classList.remove('hidden'); document.body.classList.add('playing'); G.setUIOpen(false); updateHUD(); refreshMarkers(); if (!touchMode) $('#clickhint').classList.remove('hidden'); },
+  openTalk: id => openTalk(id), talkMain: id => talkTo(npcs[id]),
+  isNear: id => { const n = npcs[id]; return !!n && Math.hypot(n.grp.position.x - P.pos.x, n.grp.position.z - P.pos.z) < 7; },
   toTitle() { G.mode = 'title'; hud.classList.add('hidden'); document.body.classList.remove('playing'); savePlayer(); UI.title(); },
 };
 
@@ -455,6 +457,7 @@ addEventListener('keydown', e => {
   keys[e.code] = true;
   if (e.code.startsWith('Digit')) { const n = +e.code.slice(5); selectSlot(n === 0 ? 9 : n - 1); }
   if (e.code === 'KeyE') { const n = nearestNPC(); if (n) talkTo(n); }
+  if (e.code === 'KeyT') { const n = nearestNPC(); if (n) openTalk(n.def.id); }
   if (e.code === 'Escape' || e.code === 'KeyM') UI.pauseMenu();
   if (e.code === 'Space') { e.preventDefault(); input.jumpQ = true; }
 });
@@ -500,9 +503,10 @@ const holdBtn = (sel, down, up) => { const b = $(sel); b.addEventListener('touch
 holdBtn('#btn-jump', () => input.jump = true, () => input.jump = false);
 holdBtn('#btn-break', () => { if (!uiOpen) breakBlock(); });
 holdBtn('#btn-place', () => { if (!uiOpen) placeBlock(); });
-holdBtn('#btn-talk', () => { const n = nearestNPC(); if (n && !uiOpen) talkTo(n); });
+holdBtn('#btn-talk', () => { const n = nearestNPC(); if (n && !uiOpen) openTalk(n.def.id); });
+function openTalk(id) { Sound.click(); UI.talkPanel(id, { onMain: () => talkTo(npcs[id]) }); }
 $('#btn-menu').addEventListener('click', e => { e.preventDefault(); Sound.unlock(); Sound.click(); UI.pauseMenu(); });
-$('#tracker').addEventListener('click', e => { if (e.target.closest('.tr-say')) { e.preventDefault(); trackerSay(); } });
+$('#tracker').addEventListener('click', e => { if (e.target.closest('.tr-say')) { e.preventDefault(); trackerSay(); } else if (e.target.closest('.tr-replay') && state.active && !uiOpen) { e.preventDefault(); Sound.unlock(); Sound.click(); Speech.speak(TALK.labels.replay, { voice: 'n', onEnd: () => UI.replayMission(state.active) }); } });
 document.addEventListener('gesturestart', e => e.preventDefault());
 document.addEventListener('dblclick', e => e.preventDefault());
 
@@ -584,7 +588,7 @@ function frame(now) {
     if (!uiOpen) updatePlayer(dt); else { camera.position.set(P.pos.x, (cam.y ?? P.pos.y) + EYE, P.pos.z); camera.rotation.set(P.pitch, P.yaw, 0); }
     const hit = !uiOpen ? raycast() : null; sel.visible = !!hit; if (hit) sel.position.set(hit.x + 0.5, hit.y + 0.5, hit.z + 0.5);
     questTick();
-    const nn = nearestNPC(); const tb = $('#btn-talk'); if (nn && !uiOpen) { if (tb.dataset.n !== nn.def.id) { tb.dataset.n = nn.def.id; tb.querySelector('span').textContent = 'Talk to ' + nn.def.name; $('#interact-hint').textContent = 'Press E to talk to ' + nn.def.name; } tb.classList.remove('hidden'); $('#interact-hint').classList.remove('hidden'); } else { tb.classList.add('hidden'); tb.dataset.n = ''; $('#interact-hint').classList.add('hidden'); }
+    const nn = nearestNPC(); const tb = $('#btn-talk'); if (nn && !uiOpen) { if (tb.dataset.n !== nn.def.id) { tb.dataset.n = nn.def.id; tb.querySelector('.who').textContent = nn.def.name; $('#interact-hint').textContent = 'Press E to talk to ' + nn.def.name + '. Press T for the Talk menu.'; } tb.classList.remove('hidden'); $('#interact-hint').classList.remove('hidden'); } else { tb.classList.add('hidden'); tb.dataset.n = ''; $('#interact-hint').classList.add('hidden'); }
     hudT += dt; if (hudT > 0.25) { hudT = 0; updateWaypoint(); const st = curStep(); if (st && st.type !== 'talk') updateHUD(); }
   }
   updateAnimals(dt); updateLife(dt, now); if (G.mode === 'play') updateHand(dt); else if (hand.mesh) hand.mesh.visible = false;

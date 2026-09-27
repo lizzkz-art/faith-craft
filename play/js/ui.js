@@ -1,7 +1,8 @@
 import { state, saveState, resetAll } from './save.js';
 import { Speech } from './speech.js';
 import { Sound } from './audio.js';
-import { VERSES, VIRTUES, WORDS, GLOSSARY, QUESTS, QUEST_ORDER, PRACTICE, TRANSLATION, NPCS, LEVEL_NAMES, PHRASES, NPC_VOICE } from './data.js';
+import { VERSES, VIRTUES, WORDS, GLOSSARY, QUESTS, QUEST_ORDER, PRACTICE, TRANSLATION, NPCS, LEVEL_NAMES, PHRASES, NPC_VOICE, TALK, HELPER_QUEST } from './data.js';
+import { matchIntent } from './intent.js';
 import { Music } from './music.js';
 import { STORIES, SKILLS, SKILL_ORDER } from './stories.js';
 import { GAMES, buildGame, shuffle, readAloudList, syllables, SAY_WORDS, SYLL } from './phonics.js';
@@ -560,10 +561,10 @@ export function applySettings() {
 
 // ---------------- In-game dialog ----------------
 export function faceEl(id) { return h('img', { class: 'face', src: iconURL('face:' + id), alt: '' }); }
-export function dialog({ npc, name, lines, choice, onChoose, onDone, doneLabel, words }) {
+export function dialog({ npc, name, lines, choice, onChoose, onDone, doneLabel, words, ref, force, noTalk }) {
   const box = $('#dialog'); let i = 0; G.setUIOpen(true);
   function render() {
-    box.innerHTML = ''; box.classList.remove('hidden');
+    box.innerHTML = ''; box.classList.remove('hidden'); box.classList.remove('talkpanel');
     const line = lines[i]; const narr = /^\s*\(/.test(line); const r = readable(line, { highlight: words, voice: narr ? 'n' : (NPC_VOICE[npc] || 'n'), cls: narr ? 'narration' : '' });
     const actions = h('div', { class: 'dlg-actions' });
     const last = i === lines.length - 1;
@@ -572,14 +573,94 @@ export function dialog({ npc, name, lines, choice, onChoose, onDone, doneLabel, 
       const pr = readable(choice.prompt, { cls: 'prompt' });
       actions.append(pr.row, h('div', { class: 'dlg-choices' }, choice.options.map((o, k) => h('div', { class: 'choice-row' }, h('button', { class: 'choice', onclick: tap(() => { Speech.cancel(); onChoose(k); }) }, o.text), speakBtn(() => o.text)))));
     }
-    box.append(h('div', { class: 'dlg-face' }, faceEl(npc)), h('div', { class: 'dlg-body' }, h('div', { class: 'dlg-name' }, name, h('span', { class: 'muted small' }, lines.length > 1 ? `  ${i + 1}/${lines.length}` : '')), r.row, actions));
-    autoRead(r);
+    // big Talk button while a character is speaking, so the Talk menu is always easy to find
+    const talkB = !noTalk && G.openTalk && NPCS.some(n => n.id === npc) ? h('button', { class: 'btn talkbtn dlg-talk', 'aria-label': 'Talk', html: '<span class="ico">💬</span><span>Talk</span>', onclick: tap(() => { Speech.cancel(); close(); G.openTalk(npc); }) }) : null;
+    box.append(h('div', { class: 'dlg-face' }, faceEl(npc), talkB), h('div', { class: 'dlg-body' }, h('div', { class: 'dlg-name' }, name, h('span', { class: 'muted small' }, lines.length > 1 ? `  ${i + 1}/${lines.length}` : '')), r.row, ref && last ? h('div', { class: 'ref' }, ref) : null, actions));
+    if (force) { if (Speech.available) r.play(); } else autoRead(r);
   }
   function close() { box.classList.add('hidden'); box.innerHTML = ''; G.setUIOpen(false); }
   render();
   return { close };
 }
-export function closeDialog() { const box = $('#dialog'); box.classList.add('hidden'); box.innerHTML = ''; }
+// ---------------- Talk menu ----------------
+// Fixed, pre-recorded answers only. Works offline. The mic is optional and only maps speech to the same buttons.
+const npcDef = id => NPCS.find(n => n.id === id);
+export function talkContext(npcId) {
+  const def = npcDef(npcId); let qid = def.quest || HELPER_QUEST[npcId] || null; const role = def.quest ? 'giver' : 'helper';
+  if (def.role === 'guide') qid = state.active || QUEST_ORDER.find(q => !(state.quests[q] && state.quests[q].done)) || null;
+  return { def, qid, role, voice: NPC_VOICE[npcId] || 'n' };
+}
+export function talkHint(ctx) {
+  if (!ctx.qid) return TALK.allDone;
+  const H = TALK.hints[ctx.qid][ctx.role], s = state.quests[ctx.qid];
+  if (s && s.done) return H[H.length - 1];
+  if (state.active === ctx.qid) return H[1 + Math.max(0, Math.min(s.step || 0, H.length - 3))];
+  return H[0];
+}
+export function talkStory(ctx) { if (!ctx.qid) return TALK.allDoneStory; const S = TALK.stories[ctx.qid]; return (ctx.role === 'helper' && S.helper) || S.giver; }
+export function talkVerse(ctx) { return VERSES[ctx.qid ? QUESTS[ctx.qid].reward : TALK.ruthVerse]; }
+export function missionLines(qid) { const Q = QUESTS[qid]; const good = Q.choice ? Q.choice.options.find(o => o.good) : null; return [...Q.intro, ...(good ? good.reply : [])]; }
+// Replay the mission-giver's intro, exactly as first given, in their voice
+export function replayMission(qid, onDone) {
+  const Q = QUESTS[qid]; if (!Q) return; const giver = npcDef(Q.npc);
+  dialog({ npc: Q.npc, name: giver.name, lines: missionLines(qid), words: Q.words, doneLabel: 'Got it!', force: true, onDone });
+}
+function talkMainAction(ctx) {
+  const id = ctx.def.id, act = state.active, Q = act ? QUESTS[act] : null, s = act ? state.quests[act] : null, st = Q && s ? Q.steps[s.step] : null;
+  if (ctx.def.quest) {
+    const qs = state.quests[ctx.def.quest];
+    if (qs && qs.done) return 'hello';
+    if (act === ctx.def.quest) return st && st.type === 'talk' && st.npc === id ? 'finish' : 'hello';
+    return 'start';
+  }
+  if (st && st.type === 'share' && st.npcs.includes(id) && !(s.list || []).includes(id)) return act === 'joseph' ? 'grain' : 'bread';
+  return 'hello';
+}
+const TALK_ICONS = { again: '🔁', next: '👣', story: '📖', verse: '📜', bye: '👋', start: '⭐', finish: '⭐', bread: '🍞', grain: '🌾', hello: '😊' };
+const TALK_TEXT = { again: 'Tell me the mission again', next: 'What do I do next?', story: 'Tell me the story', verse: 'Say a Bible verse', bye: 'Goodbye', start: 'Start the mission', finish: 'Finish the mission', bread: 'Give bread', grain: 'Give grain', hello: 'Say hello' };
+export function talkPanel(npcId, o = {}) {
+  const ctx = talkContext(npcId), def = ctx.def, box = $('#dialog'); G.setUIOpen(true); Speech.cancel();
+  box.innerHTML = ''; box.classList.remove('hidden'); box.classList.add('talkpanel');
+  const back = () => talkPanel(npcId, { quiet: true });
+  const answer = (lines, extra = {}) => dialog({ npc: npcId, name: def.name, lines, words: ctx.qid ? QUESTS[ctx.qid].words : [], doneLabel: 'OK', force: true, noTalk: true, onDone: back, ...extra });
+  const close = () => { box.classList.add('hidden'); box.classList.remove('talkpanel'); box.innerHTML = ''; G.setUIOpen(false); };
+  const run = k => {
+    if (k === 'again') { if (ctx.qid) replayMission(ctx.qid, back); else answer([TALK.allDone]); }
+    else if (k === 'next') answer([talkHint(ctx)]);
+    else if (k === 'story') answer([talkStory(ctx)]);
+    else if (k === 'verse') { const v = talkVerse(ctx); answer([TALK.verseLead, v.text], { ref: v.ref }); }
+    else if (k === 'bye') answer([TALK.bye], { doneLabel: 'Bye!', onDone: () => G.setUIOpen(false) });
+    else { close(); o.onMain ? o.onMain() : G.talkMain && G.talkMain(npcId); }
+  };
+  // read the button aloud first (so a new reader hears what he picked), then the character answers
+  const choose = k => { Speech.cancel(); Sound.click(); if (Speech.available) Speech.speak(TALK.labels[k], { voice: 'n', onEnd: () => run(k) }); else run(k); };
+  const say = h('div', { class: 'talk-say' }); let sayR = null;
+  const sayLine = t => { say.innerHTML = ''; sayR = readable(t, { voice: ctx.voice, speaker: false, noTap: true }); say.append(sayR.el); if (Speech.available) sayR.play(); };
+  const main = talkMainAction(ctx); const near = !G.isNear || G.isNear(npcId);
+  const keys = [...(near ? [main] : []), 'again', 'next', 'story', 'verse', 'bye'];
+  const btn = k => h('button', { class: 'talk-choice' + (k === main && k !== 'hello' ? ' main' : ''), 'data-k': k, onclick: tap(() => choose(k)) }, h('span', { class: 'ico', 'aria-hidden': 'true' }, TALK_ICONS[k]), h('span', { class: 'lbl' }, TALK_TEXT[k]));
+  const grid = h('div', { class: 'talk-grid' }, keys.map(btn));
+  let mic = null;
+  const micOK = () => Recognizer.available && navigator.onLine !== false;
+  if (micOK()) {
+    mic = h('button', { class: 'btn mic big talk-mic', html: MIC + '<span>Tap and talk</span>' });
+    const status = h('div', { class: 'muted small talk-status' });
+    mic.addEventListener('click', tap(() => {
+      if (!state.micIntroSeen) return micIntro(() => { state.micIntroSeen = true; saveState(); mic.click(); });
+      Speech.cancel(); mic.classList.add('listening'); status.textContent = 'I’m listening…';
+      Recognizer.listen(res => {
+        mic.classList.remove('listening'); status.textContent = '';
+        if (res.error && !Recognizer.available) { mic.remove(); status.remove(); sayLine(TALK.noCatch); return; }
+        const k = res.error ? null : matchIntent(res.alts);
+        if (k) choose(k); else sayLine(TALK.noCatch);   // kind, never "wrong", never counted
+      });
+    }));
+    box.append(h('div', { class: 'dlg-face' }, faceEl(npcId)), h('div', { class: 'dlg-body' }, h('div', { class: 'dlg-name' }, 'Talk to ' + def.name), say, grid, h('div', { class: 'row center talk-microw' }, mic, status)));
+  } else box.append(h('div', { class: 'dlg-face' }, faceEl(npcId)), h('div', { class: 'dlg-body' }, h('div', { class: 'dlg-name' }, 'Talk to ' + def.name), say, grid));
+  if (!o.quiet) sayLine(TALK.open); else { say.append(readable(TALK.open, { voice: ctx.voice, speaker: false, noTap: true }).el); }
+  return { close };
+}
+export function closeDialog() { const box = $('#dialog'); box.classList.add('hidden'); box.classList.remove('talkpanel'); box.innerHTML = ''; }
 
 export function newWords(qid, onDone) {
   const lv = effLevel(); const n = lv === 1 ? 3 : lv === 2 ? 4 : 5; const ws = QUESTS[qid].words.slice(0, n);

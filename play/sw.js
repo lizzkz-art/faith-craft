@@ -1,10 +1,10 @@
 // Faith Craft service worker: caches every file (including the voice recordings) so the game works fully offline.
-const VERSION = 'v3-pages-p1-51a90d6dbd';
+const VERSION = 'v3-pages-p1-d055962025';
 const CACHE = 'faithcraft-' + VERSION;
 const AUDIO_CACHE = 'faithcraft-audio'; // voice clips are named by content, so they survive updates
 const ASSETS = [
   './', './index.html', './manifest.json', './css/style.css',
-  './js/game.js', './js/ui.js', './js/data.js', './js/stories.js', './js/phonics.js', './js/icons.js', './js/readaloud.js',
+  './js/game.js', './js/ui.js', './js/data.js', './js/stories.js', './js/phonics.js', './js/icons.js', './js/readaloud.js', './js/intent.js',
   './js/world.js', './js/textures.js', './js/entities.js', './js/audio.js', './js/music.js', './js/speech.js', './js/save.js',
   './lib/three.module.js', './audio/index.json', './audio/silence.mp3',
   './fonts/lexend-latin-400-normal.woff2', './fonts/lexend-latin-700-normal.woff2', './fonts/opendyslexic-latin-400-normal.woff2', './fonts/opendyslexic-latin-700-normal.woff2',

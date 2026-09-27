@@ -2,23 +2,27 @@ import * as THREE from '../lib/three.module.js';
 
 export const entMat = new THREE.MeshLambertMaterial({ vertexColors: true });
 const tmpC = new THREE.Color();
+// Each later part is grown by a hair (DETAIL_EPS per list position) so a detail listed after its base
+// (eyes on a face, beard on a head, patch on a body) never shares a plane with it: no z-fighting flicker.
+const DETAIL_EPS = 0.0012;
 export function mergeBoxes(parts) {
   const pos = [], nor = [], col = [], idx = [];
-  for (const p of parts) {
-    const g = new THREE.BoxGeometry(p[0], p[1], p[2]); g.translate(p[3], p[4], p[5]);
+  parts.forEach((p, k) => {
+    const e = k * DETAIL_EPS;
+    const g = new THREE.BoxGeometry(p[0] + e, p[1] + e, p[2] + e); g.translate(p[3], p[4], p[5]);
     const base = pos.length / 3; tmpC.set(p[6]);
     const pa = g.attributes.position.array, na = g.attributes.normal.array;
     for (let i = 0; i < pa.length; i++) { pos.push(pa[i]); nor.push(na[i]); }
     for (let i = 0; i < pa.length / 3; i++) col.push(tmpC.r, tmpC.g, tmpC.b);
     for (const i of g.index.array) idx.push(base + i);
     g.dispose();
-  }
+  });
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   geo.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
   geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
   geo.setIndex(idx); geo.computeBoundingSphere();
-  return new THREE.Mesh(geo, entMat);
+  const mesh = new THREE.Mesh(geo, entMat); mesh.userData.parts = parts; return mesh;
 }
 
 export function makeLabel(text, opts = {}) {
@@ -60,11 +64,11 @@ export function buildNPC(def) {
     [0.5, 0.5, 0.5, 0, 1.56 - NY, 0, L.skin],
     [0.09, 0.09, 0.02, -0.11, 1.6 - NY, 0.255, '#1b1b1b'], [0.09, 0.09, 0.02, 0.11, 1.6 - NY, 0.255, '#1b1b1b'],
     [0.04, 0.04, 0.021, -0.09, 1.62 - NY, 0.262, '#ffffff'], [0.04, 0.04, 0.021, 0.13, 1.62 - NY, 0.262, '#ffffff'],
-    [0.16, 0.04, 0.02, 0, 1.44 - NY, 0.255, '#9a4a3a'],
+    [0.16, 0.04, 0.02, 0, 1.44 - NY, L.beard ? 0.29 : 0.255, '#9a4a3a'],   // mouth sits on top of the beard when there is one
   ];
-  if (L.hair) head.push([0.52, 0.12, 0.52, 0, 1.84 - NY, 0, L.hair], [0.52, 0.36, 0.08, 0, 1.64 - NY, -0.23, L.hair]);
-  if (L.wrap) head.push([0.56, 0.16, 0.56, 0, 1.86 - NY, 0, L.wrap], [0.56, 0.44, 0.08, 0, 1.62 - NY, -0.26, L.wrap]);
-  if (L.beard) head.push([0.5, 0.2, 0.08, 0, 1.36 - NY, 0.23, L.beard], [0.08, 0.2, 0.3, -0.24, 1.44 - NY, 0.1, L.beard], [0.08, 0.2, 0.3, 0.24, 1.44 - NY, 0.1, L.beard]);
+  if (L.hair) head.push([0.52, 0.12, 0.52, 0, 1.84 - NY, 0, L.hair], [0.51, 0.36, 0.08, 0, 1.64 - NY, -0.235, L.hair]);
+  if (L.wrap) head.push([0.57, 0.18, 0.57, 0, 1.86 - NY, 0, L.wrap], [0.55, 0.44, 0.08, 0, 1.62 - NY, -0.265, L.wrap]);
+  if (L.beard) head.push([0.54, 0.19, 0.08, 0, 1.355 - NY, 0.237, L.beard], [0.08, 0.2, 0.3, -0.252, 1.44 - NY, 0.108, L.beard], [0.08, 0.2, 0.3, 0.252, 1.44 - NY, 0.108, L.beard]);  // beard sits clearly outside the face planes
   const bodyM = mergeBoxes(body), headM = mergeBoxes(head); headM.position.y = NY;
   const legGeo = [[0.29, 0.46, 0.38, 0, -0.23, 0, L.robe], [0.22, 0.1, 0.3, 0, -0.5, 0.04, '#5b3b22']];
   const legL = mergeBoxes(legGeo), legR = mergeBoxes(legGeo); legL.position.set(-0.165, 0.55, 0); legR.position.set(0.165, 0.55, 0);
@@ -82,10 +86,10 @@ export function makeBubble(text) { return makeLabel(text, { bg: 'rgba(255,255,25
 // ---------- Animals ----------
 export const SPECIES = {
   sheep: { name: 'Sheep', parts: [[0.8, 0.6, 1.1, 0, 0.72, 0, '#f4f4ee'], [0.4, 0.4, 0.4, 0, 0.95, 0.66, '#3b3b3b'], [0.44, 0.14, 0.3, 0, 1.18, 0.6, '#f4f4ee'], [0.07, 0.07, 0.02, -0.12, 1.0, 0.865, '#fff'], [0.07, 0.07, 0.02, 0.12, 1.0, 0.865, '#fff'], ...legs(0.28, 0.4, '#3b3b3b', 0.45)], speed: 1.3, h: 1.2 },
-  cow: { name: 'Cow', parts: [[0.9, 0.75, 1.35, 0, 0.9, 0, '#6b4226'], [0.5, 0.3, 0.5, 0.2, 1.05, 0.2, '#f2f2f2'], [0.5, 0.5, 0.45, 0, 1.12, 0.85, '#6b4226'], [0.3, 0.2, 0.06, 0, 0.98, 1.08, '#f0b8b0'], [0.08, 0.16, 0.08, -0.2, 1.42, 0.8, '#eee'], [0.08, 0.16, 0.08, 0.2, 1.42, 0.8, '#eee'], [0.07, 0.07, 0.02, -0.14, 1.2, 1.08, '#111'], [0.07, 0.07, 0.02, 0.14, 1.2, 1.08, '#111'], ...legs(0.32, 0.5, '#4a2d1a', 0.52)], speed: 1.1, h: 1.5 },
-  lion: { name: 'Lion', parts: [[0.75, 0.6, 1.2, 0, 0.75, 0, '#d9a441'], [0.72, 0.72, 0.32, 0, 1.0, 0.62, '#9a5a1e'], [0.44, 0.42, 0.34, 0, 1.0, 0.82, '#e0b050'], [0.18, 0.12, 0.06, 0, 0.9, 1.0, '#6b3b1b'], [0.07, 0.07, 0.02, -0.11, 1.08, 1.0, '#111'], [0.07, 0.07, 0.02, 0.11, 1.08, 1.0, '#111'], [0.1, 0.1, 0.5, 0, 0.9, -0.8, '#d9a441'], [0.16, 0.16, 0.16, 0, 0.9, -1.08, '#9a5a1e'], ...legs(0.26, 0.45, '#c8923a', 0.45)], speed: 0.9, h: 1.3 },
+  cow: { name: 'Cow', parts: [[0.9, 0.75, 1.35, 0, 0.9, 0, '#6b4226'], [0.52, 0.3, 0.5, 0.2, 1.05, 0.2, '#f2f2f2'], [0.5, 0.5, 0.45, 0, 1.12, 0.85, '#6b4226'], [0.3, 0.2, 0.06, 0, 0.98, 1.08, '#f0b8b0'], [0.08, 0.16, 0.08, -0.2, 1.42, 0.8, '#eee'], [0.08, 0.16, 0.08, 0.2, 1.42, 0.8, '#eee'], [0.07, 0.07, 0.02, -0.14, 1.2, 1.08, '#111'], [0.07, 0.07, 0.02, 0.14, 1.2, 1.08, '#111'], ...legs(0.32, 0.5, '#4a2d1a', 0.52)], speed: 1.1, h: 1.5 },
+  lion: { name: 'Lion', parts: [[0.75, 0.6, 1.2, 0, 0.75, 0, '#d9a441'], [0.72, 0.72, 0.32, 0, 1.0, 0.62, '#9a5a1e'], [0.44, 0.42, 0.34, 0, 1.0, 0.82, '#e0b050'], [0.18, 0.12, 0.06, 0, 0.9, 1.0, '#6b3b1b'], [0.07, 0.07, 0.03, -0.11, 1.08, 1.0, '#111'], [0.07, 0.07, 0.03, 0.11, 1.08, 1.0, '#111'], [0.1, 0.1, 0.5, 0, 0.9, -0.8, '#d9a441'], [0.16, 0.16, 0.16, 0, 0.9, -1.08, '#9a5a1e'], ...legs(0.26, 0.45, '#c8923a', 0.45)], speed: 0.9, h: 1.3 },
   camel: { name: 'Camel', parts: [[0.75, 0.7, 1.4, 0, 1.45, 0, '#c9a36b'], [0.5, 0.45, 0.6, 0, 1.95, 0, '#b8925a'], [0.25, 0.8, 0.25, 0, 1.9, 0.75, '#c9a36b'], [0.3, 0.3, 0.5, 0, 2.3, 0.95, '#c9a36b'], [0.06, 0.06, 0.02, -0.1, 2.36, 1.2, '#111'], [0.06, 0.06, 0.02, 0.1, 2.36, 1.2, '#111'], ...legs(0.28, 1.1, '#b8925a', 0.52)], speed: 0.9, h: 2.5 },
-  donkey: { name: 'Donkey', parts: [[0.65, 0.6, 1.1, 0, 0.9, 0, '#8a8a8a'], [0.36, 0.4, 0.5, 0, 1.25, 0.7, '#8a8a8a'], [0.1, 0.35, 0.08, -0.1, 1.6, 0.62, '#6a6a6a'], [0.1, 0.35, 0.08, 0.1, 1.6, 0.62, '#6a6a6a'], [0.3, 0.2, 0.08, 0, 1.12, 0.96, '#ddd'], [0.06, 0.06, 0.02, -0.1, 1.33, 0.96, '#111'], [0.06, 0.06, 0.02, 0.1, 1.33, 0.96, '#111'], ...legs(0.24, 0.6, '#6a6a6a', 0.42)], speed: 1.0, h: 1.6 },
+  donkey: { name: 'Donkey', parts: [[0.65, 0.6, 1.1, 0, 0.9, 0, '#8a8a8a'], [0.36, 0.4, 0.5, 0, 1.25, 0.7, '#8a8a8a'], [0.1, 0.35, 0.08, -0.1, 1.6, 0.62, '#6a6a6a'], [0.1, 0.35, 0.08, 0.1, 1.6, 0.62, '#6a6a6a'], [0.3, 0.2, 0.08, 0, 1.12, 0.96, '#ddd'], [0.06, 0.06, 0.03, -0.1, 1.33, 0.96, '#111'], [0.06, 0.06, 0.03, 0.1, 1.33, 0.96, '#111'], ...legs(0.24, 0.6, '#6a6a6a', 0.42)], speed: 1.0, h: 1.6 },
   dove: { name: 'Dove', parts: [[0.26, 0.24, 0.42, 0, 0, 0, '#fafafa'], [0.2, 0.2, 0.2, 0, 0.12, 0.26, '#fafafa'], [0.08, 0.05, 0.1, 0, 0.1, 0.4, '#f0a040'], [0.6, 0.04, 0.26, 0, 0.08, -0.02, '#e8e8f0'], [0.2, 0.04, 0.2, 0, 0.04, -0.28, '#e0e0e8'], [0.04, 0.04, 0.02, -0.07, 0.16, 0.365, '#111'], [0.04, 0.04, 0.02, 0.07, 0.16, 0.365, '#111']], speed: 2.5, h: 0.4, fly: true },
 };
 function legs(sx, h, col, sz) { const w = 0.18; return [[w, h, w, -sx, h / 2, sz, col], [w, h, w, sx, h / 2, sz, col], [w, h, w, -sx, h / 2, -sz, col], [w, h, w, sx, h / 2, -sz, col]]; }
@@ -117,7 +121,7 @@ const ITEM_PARTS = {
   pebble: [[0.34, 0.16, 0.28, 0, 0.08, 0, '#b8bcc4'], [0.26, 0.06, 0.2, 0, 0.18, 0, '#d0d4dc']],
   tablets: [[0.36, 0.56, 0.1, -0.2, 0.28, 0, '#dcd6c6'], [0.36, 0.56, 0.1, 0.2, 0.28, 0, '#dcd6c6'], [0.24, 0.04, 0.02, -0.2, 0.4, 0.055, '#8a8272'], [0.24, 0.04, 0.02, -0.2, 0.3, 0.055, '#8a8272'], [0.24, 0.04, 0.02, 0.2, 0.4, 0.055, '#8a8272'], [0.24, 0.04, 0.02, 0.2, 0.3, 0.055, '#8a8272']],
   water: [[0.34, 0.4, 0.34, 0, 0.2, 0, '#b5653a'], [0.2, 0.12, 0.2, 0, 0.46, 0, '#b5653a'], [0.16, 0.02, 0.16, 0, 0.53, 0, '#4aa3f0']],
-  bandage: [[0.36, 0.2, 0.2, 0, 0.1, 0, '#fbfbf6'], [0.36, 0.22, 0.04, 0, 0.11, 0.1, '#e6e6de'], [0.1, 0.1, 0.24, 0.24, 0.05, 0, '#fbfbf6']],
+  bandage: [[0.36, 0.2, 0.2, 0, 0.1, 0, '#fbfbf6'], [0.37, 0.22, 0.04, 0, 0.11, 0.1, '#e6e6de'], [0.1, 0.1, 0.24, 0.24, 0.05, 0, '#fbfbf6']],
   grain: [[0.4, 0.46, 0.36, 0, 0.23, 0, '#d8b86a'], [0.22, 0.12, 0.2, 0, 0.52, 0, '#c2a255'], [0.24, 0.04, 0.22, 0, 0.46, 0, '#8b5a2b']],
 };
 export function buildItem(type) { const g = new THREE.Group(); g.add(mergeBoxes(ITEM_PARTS[type])); return g; }
@@ -129,6 +133,7 @@ export function buildBeacon() {
 }
 export function buildZone(x0, y0, z0, x1, y1, z1, color = 0xffd84a) {
   const g = new THREE.Group();
+  const m = 0.015; x0 -= m; z0 -= m; x1 += m; z1 += m; y1 += m; if (Math.abs(y0 - Math.round(y0)) < 0.005) y0 += 0.012; // sit just off the block faces
   const box = new THREE.BoxGeometry(x1 - x0, y1 - y0, z1 - z0);
   const mesh = new THREE.Mesh(box, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.16, depthWrite: false }));
   const edges = new THREE.LineSegments(new THREE.EdgesGeometry(box), new THREE.LineBasicMaterial({ color }));
