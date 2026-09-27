@@ -1,5 +1,7 @@
 // "Read it aloud" bonus: optional speech recognition + in-memory "hear yourself" recording.
 // Recognition never lowers scores; recordings are kept in memory only and discarded when the screen closes.
+import { Speech } from './speech.js';
+import { Sound, audioCtx } from './audio.js';
 
 const MOCK = false;
 
@@ -79,24 +81,83 @@ export function isMatch(target, alts) {
 }
 
 // ---------- Hear yourself (in-memory only) ----------
+// Records a few seconds into memory (never saved or uploaded), then releases the microphone right away
+// so the iPad's orange mic dot turns off. Playback goes through the same unlocked audio element as the
+// voice clips (Speech.playUrl), so it works with the silent switch on and in Home Screen mode.
+function pickMime() {
+  if (typeof MediaRecorder === 'undefined') return '';
+  const types = ['audio/mp4', 'audio/mp4;codecs=mp4a.40.2', 'audio/aac', 'audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus'];
+  for (const t of types) { try { if (MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(t)) return t; } catch (e) { } }
+  return '';
+}
+function setSession(type) { try { if (navigator.audioSession) navigator.audioSession.type = type; } catch (e) { } }
 export const Recorder = {
-  get available() { return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.MediaRecorder); },
-  url: null, _rec: null, _stream: null,
-  async record(ms = 4000) {
+  get available() { return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && typeof window.MediaRecorder !== 'undefined'); },
+  denied: false, url: null, mime: '', recording: false,
+  _rec: null, _stream: null, _stopFn: null, _raf: 0, _src: null,
+  // opts: { maxMs, silenceMs, onLevel(0..1), onStart }. Resolves { url, spoke, ms } or rejects { denied|error }
+  async record(opts = {}) {
     this.discard();
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    this._stream = stream;
-    const types = ['audio/mp4', 'audio/webm;codecs=opus', 'audio/webm', ''];
-    const type = types.find(t => !t || (MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(t)));
-    const rec = new MediaRecorder(stream, type ? { mimeType: type } : undefined); this._rec = rec;
-    const chunks = [];
-    return new Promise(res => {
+    const maxMs = opts.maxMs || 6000, quietStart = opts.quietStartMs || 3000, afterSpeech = opts.silenceMs || 1000, minMs = opts.minMs || 3000;
+    setSession('play-and-record');
+    let stream;
+    try { stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } }); }
+    catch (e) {
+      setSession('playback'); Sound.resume();
+      const denied = e && (e.name === 'NotAllowedError' || e.name === 'SecurityError' || e.name === 'PermissionDeniedError');
+      if (denied) this.denied = true;
+      throw { denied, error: (e && e.name) || 'error' };
+    }
+    this.denied = false; this._stream = stream; this.recording = true;
+    const mime = pickMime(); let rec;
+    try { rec = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined); } catch (e) { rec = new MediaRecorder(stream); }
+    this._rec = rec; this.mime = rec.mimeType || mime || 'audio/mp4';
+    // level meter + auto stop (analyser only; the mic is never sent to the speakers)
+    const ac = audioCtx(); let an = null, buf = null;
+    if (ac) { try { if (ac.ctx.state !== 'running') ac.ctx.resume(); this._src = ac.ctx.createMediaStreamSource(stream); an = ac.ctx.createAnalyser(); an.fftSize = 1024; buf = new Float32Array(an.fftSize); this._src.connect(an); } catch (e) { an = null; } }
+    const chunks = []; const t0 = performance.now(); let spoke = false, lastLoud = 0, peak = 0;
+    return new Promise((res, rej) => {
+      const finish = () => {
+        cancelAnimationFrame(this._raf); this._release();
+        const ms = performance.now() - t0;
+        if (!chunks.length) { rej({ error: 'empty' }); return; }
+        const blob = new Blob(chunks, { type: this.mime.split(';')[0] || 'audio/mp4' }); this.url = URL.createObjectURL(blob);
+        res({ url: this.url, spoke: spoke || !an, ms, size: blob.size });
+      };
       rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
-      rec.onstop = () => { stream.getTracks().forEach(t => t.stop()); this._stream = null; const blob = new Blob(chunks, { type: rec.mimeType || 'audio/mp4' }); this.url = URL.createObjectURL(blob); res(this.url); };
-      rec.start(); setTimeout(() => { if (rec.state !== 'inactive') rec.stop(); }, ms);
+      rec.onstop = finish; rec.onerror = () => { try { rec.stop(); } catch (e) { finish(); } };
+      this._stopFn = () => { if (rec.state !== 'inactive') { try { rec.requestData && rec.requestData(); } catch (e) { } rec.stop(); } };
+      rec.start(250); opts.onStart && opts.onStart();
+      const tick = () => {
+        const now = performance.now() - t0;
+        if (an) {
+          an.getFloatTimeDomainData(buf); let sum = 0; for (let i = 0; i < buf.length; i++) sum += buf[i] * buf[i];
+          const rms = Math.sqrt(sum / buf.length); peak = Math.max(peak * 0.9, rms); const lvl = Math.min(1, rms * 9);
+          opts.onLevel && opts.onLevel(lvl);
+          if (rms > 0.02) { if (!spoke && now > 120) spoke = true; lastLoud = now; }
+          if (!spoke && now > quietStart) return this._stopFn();                       // nothing said: stop after ~3 s
+          if (spoke && now > minMs && now - lastLoud > afterSpeech) return this._stopFn(); // finished talking
+        } else if (now > minMs) return this._stopFn();
+        if (now > maxMs) return this._stopFn();
+        this._raf = requestAnimationFrame(tick);
+      };
+      this._raf = requestAnimationFrame(tick);
     });
   },
-  stop() { if (this._rec && this._rec.state !== 'inactive') this._rec.stop(); },
-  play() { if (!this.url) return Promise.resolve(); const a = new Audio(this.url); return new Promise(r => { a.onended = r; a.onerror = r; a.play().catch(r); }); },
-  discard() { try { this.stop(); } catch (e) { } if (this._stream) this._stream.getTracks().forEach(t => t.stop()); this._stream = null; if (this.url) URL.revokeObjectURL(this.url); this.url = null; },
+  stop() { if (this._stopFn) this._stopFn(); },
+  // release the mic stream immediately (orange dot off) and give audio back to playback
+  _release() {
+    this.recording = false;
+    try { this._src && this._src.disconnect(); } catch (e) { } this._src = null;
+    if (this._stream) this._stream.getTracks().forEach(t => t.stop()); this._stream = null;
+    setSession('playback'); Sound.resume();
+  },
+  play() { if (!this.url) return Promise.resolve(); return new Promise(r => Speech.playUrl(this.url, r)); },
+  discard() {
+    cancelAnimationFrame(this._raf);
+    try { if (this._rec && this._rec.state !== 'inactive') { this._rec.ondataavailable = null; this._rec.onstop = null; this._rec.stop(); } } catch (e) { }
+    this._rec = null; this._stopFn = null;
+    if (this._stream || this.recording) this._release();
+    if (this.url) URL.revokeObjectURL(this.url); this.url = null;
+  },
 };

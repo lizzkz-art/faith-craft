@@ -123,6 +123,18 @@ export const Speech = {
     u.onend = finish; u.onerror = finish;
     synth.speak(u);
   },
+  // Play a recording (blob URL) through the same unlocked audio element as the voice clips
+  playUrl(url, onEnd) {
+    this.cancel(); const my = job; let done = false;
+    const end = () => { if (done) return; done = true; if (A) { A.onended = A.onerror = null; } setPlaying(false); onEnd && onEnd(); };
+    if (!A) return end();
+    try { if (navigator.audioSession && navigator.audioSession.type !== 'playback') navigator.audioSession.type = 'playback'; } catch (e) { }
+    A.onended = () => { if (my === job) end(); }; A.onerror = () => { if (my === job) end(); };
+    try { A.playbackRate = 1; A.defaultPlaybackRate = 1; } catch (e) { }
+    A.src = url; setPlaying(true);
+    const p = A.play(); if (p && p.catch) p.catch(() => { if (my === job) end(); });
+    fbTimer = setTimeout(() => { if (my === job && A.paused && A.currentTime === 0) end(); }, 12000);
+  },
   // Play several short parts in a row (syllables, verse chunks). onChunk(k) fires as each starts.
   speakChunks(chunks, o = {}) {
     this.cancel(); const my = job;

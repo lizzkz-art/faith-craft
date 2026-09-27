@@ -5,6 +5,8 @@ const unlockers = [];
 export const Sound = {
   enabled: true, calm: false,
   onUnlock(f) { unlockers.push(f); if (ctx) f(ctx, master); },
+  // iOS can suspend the context after the mic is used; bring music and effects back
+  resume() { try { if (ctx && ctx.state !== 'running') ctx.resume(); } catch (e) { } },
   unlock() {
     try {
       if (!ctx) {

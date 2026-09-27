@@ -278,3 +278,16 @@ body.calm .tbtn.talk { animation: none; }
 .tlist .tcount { display: block; margin-top: 2px; color: #1f5fa8; }
 .tr-replay { pointer-events: auto; position: relative; z-index: 4; display: flex; align-items: center; gap: 6px; margin-top: 8px; width: 100%; min-height: 48px; border-radius: 14px; border: 3px solid #d19a00; background: #ffc629; color: #3a2a00; font-weight: 800; font-size: 1.05em; box-shadow: 0 3px 0 #b8860b; padding: 4px 10px; justify-content: center; }
 .tr-replay span { font-size: 1.2em; } .tr-replay:active { transform: translateY(2px); box-shadow: none; }
+/* ---------- Record me / Hear myself ---------- */
+.recw { margin: 8px 0; }
+.btn.recbtn { background: #e25a5a; color: #fff; border-color: #a33; box-shadow: 0 4px 0 #a33; min-width: 220px; font-size: 1.25em; display: inline-flex; align-items: center; gap: 10px; justify-content: center; }
+.btn.recbtn.listening { background: #2e9d5b; border-color: #1d6b3d; box-shadow: 0 4px 0 #1d6b3d; }
+.recbtn .ico, .hearbtn .ico, .againbtn .ico { font-size: 1.4em; line-height: 1; }
+.btn.hearbtn, .btn.againbtn { min-width: 200px; font-size: 1.2em; display: inline-flex; align-items: center; gap: 10px; justify-content: center; }
+.reclive { display: flex; align-items: center; justify-content: center; gap: 12px; margin: 10px auto; font-size: 1.3em; color: #1d6b3d; }
+.recdot { width: 18px; height: 18px; border-radius: 50%; background: #e53935; animation: recblink 1s infinite; }
+@keyframes recblink { 50% { opacity: .25; } }
+.recmeter { width: 220px; height: 22px; border-radius: 11px; background: #e3e7ea; overflow: hidden; border: 2px solid #9fb3a6; }
+.recmeter .lvl { height: 100%; width: 0; background: linear-gradient(90deg, #4caf50, #ffc107 70%, #ff7043); transition: width .08s linear; }
+.recstatus { text-align: center; font-weight: 700; margin-top: 6px; min-height: 1.4em; }
+.recstatus.warn { color: #8a4b00; background: #fff4d6; border-radius: 12px; padding: 8px 12px; font-weight: 600; }

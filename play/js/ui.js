@@ -386,16 +386,7 @@ export function readAloud() {
     if (!Recognizer.available) micBtn.classList.add('hidden');
     const selfBtn = h('button', { class: 'btn big', onclick: tap(participation) }, 'I read it!');
     const helperBtn = state.settings.helperCheck ? h('button', { class: 'btn helper', onclick: tap(() => success('helper')) }, 'Helper: He read it!') : null;
-    const hearSelf = Recorder.available ? h('button', { class: 'btn', onclick: tap(async () => {
-      try {
-        if (!state.micIntroSeen) return micIntro(() => { state.micIntroSeen = true; saveState(); hearSelf.click(); });
-        status.textContent = 'Recording… read it now (4 seconds).'; hearSelf.disabled = true;
-        await Recorder.record(4000);
-        status.textContent = 'Listen: first the model, then you.';
-        await new Promise(r => { if (!Speech.available) return r(); Speech.speak(target, { slow: true, onEnd: r }); setTimeout(r, 8000); });
-        await Recorder.play(); status.textContent = PHRASES.raSelf; sayLines([PHRASES.raSelf], true); hearSelf.disabled = false;
-      } catch (e) { status.textContent = 'Recording is not available right now.'; hearSelf.remove(); }
-    }) }, '🎧 Hear yourself') : null;
+    const hearSelf = recordWidget({ recLabel: 'Record me', model: onEnd => Speech.speak(target, { slow: true, onEnd }) });
     const counter = h('div', { class: 'muted' }, `${k + 1} of ${list.length} · Read Aloud Stars: ${state.readStars || 0}`); body.append(counter, h('div', { class: 'card ra' }, disp,
       h('div', { class: 'row center' }, speakBtn(null, { label: 'Hear it slowly', cls: 'big' })), status,
       h('div', { class: 'row center' }, micBtn, selfBtn, helperBtn), h('div', { class: 'row center' }, hearSelf), h('div', { class: 'row center' }, next),
@@ -406,7 +397,7 @@ export function readAloud() {
 }
 function micIntro(onOk) {
   const pop = h('div', { class: 'modal', id: 'micintro' }, h('div', { class: 'card' }, h('h3', {}, 'Using the microphone'),
-    readable('The game can listen while you read, so it can cheer you on. Your iPad will ask if the game can use the microphone. A grown-up can tap Allow. Nothing is saved or shared.').row,
+    readable('The game can listen while you read or talk, so it can cheer you on and you can hear yourself. Your iPad will ask to use the microphone. A grown-up can tap Allow. Recordings are never saved or shared.').row,
     h('div', { class: 'row' }, h('button', { class: 'btn primary big', onclick: tap(() => { pop.remove(); onOk(); }) }, 'OK, let’s try'), h('button', { class: 'btn big', onclick: tap(() => pop.remove()) }, 'Not now'))));
   document.body.append(pop);
 }
@@ -416,11 +407,51 @@ function starBurst(parent) { if (state.settings.calm) return; const s = h('div',
 export function practice(startId) {
   const body = openScreen('Say It With Me', { onBack: backToMenu });
   const list = h('div', { class: 'practicelist' });
-  body.append(h('div', { class: 'muted center' }, 'Practice out loud at your own speed. Nothing is recorded or graded.'), h('h3', {}, 'Verses'), list);
+  body.append(h('div', { class: 'muted center' }, 'Practice out loud at your own speed. Nothing is graded. You can record yourself and listen back.'), h('h3', {}, 'Verses'), list);
   PRACTICE.forEach(p => list.append(h('button', { class: 'pbtn' + (state.practice[p.id] ? ' done' : ''), onclick: tap(() => sayIt(p.ref, p.chunks, p.id)) }, p.ref, state.practice[p.id] ? ' ✓' : '')));
   const wl = h('div', { class: 'practicelist' }); body.append(h('h3', {}, 'Words (r-blends and strong endings)'), wl);
   SAY_WORDS.forEach(w => wl.append(h('button', { class: 'pbtn', onclick: tap(() => sayIt(w.replace(/-/g, ''), w.split('-'), 'w:' + w, true)) }, w.replace(/-/g, ''))));
   if (startId) { const p = PRACTICE.find(x => x.id === startId); if (p) sayIt(p.ref, p.chunks, p.id); }
+}
+// ---------------- Record me / Hear myself (shared) ----------------
+// model(onEnd) plays the correct Kokoro clip; the recording follows right after it. In memory only.
+const MIC_OFF_MSG = 'The microphone is turned off for this game. A grown-up can turn it on: open Settings, then Safari (or the Faith Craft app), then Microphone, and choose Allow.';
+function recordWidget({ model, onRecorded, onUnavailable, recLabel = 'Record me' }) {
+  const wrap = h('div', { class: 'recw' });
+  if (!Recorder.available) { onUnavailable && onUnavailable(); return wrap; }
+  const meter = h('div', { class: 'recmeter', 'aria-hidden': 'true' }, h('div', { class: 'lvl' }));
+  const status = h('div', { class: 'recstatus', 'aria-live': 'polite' });
+  const recBtn = h('button', { class: 'btn big recbtn', html: '<span class="ico" aria-hidden="true">🎙️</span><span class="lbl">' + recLabel + '</span>' });
+  const hearBtn = h('button', { class: 'btn primary big hearbtn hidden', html: '<span class="ico" aria-hidden="true">👂</span><span>Hear myself</span>' });
+  const againBtn = h('button', { class: 'btn big againbtn hidden', html: '<span class="ico" aria-hidden="true">🔁</span><span>Try again</span>' });
+  const liveRow = h('div', { class: 'reclive hidden' }, h('span', { class: 'recdot' }), h('b', {}, 'Listening…'), meter);
+  const setIdle = () => { recBtn.classList.remove('listening', 'hidden'); recBtn.querySelector('.lbl').textContent = recLabel; recBtn.querySelector('.ico').textContent = '🎙️'; liveRow.classList.add('hidden'); };
+  const start = async () => {
+    if (Recorder.recording) { Recorder.stop(); return; }
+    Speech.cancel(); status.textContent = ''; hearBtn.classList.add('hidden'); againBtn.classList.add('hidden');
+    recBtn.classList.add('listening'); recBtn.querySelector('.lbl').textContent = 'Stop'; recBtn.querySelector('.ico').textContent = '⏹'; liveRow.classList.remove('hidden');
+    const lvl = meter.firstChild;
+    try {
+      const r = await Recorder.record({ onLevel: v => { lvl.style.width = Math.round(v * 100) + '%'; } });
+      recBtn.classList.add('hidden'); recBtn.classList.remove('listening'); liveRow.classList.add('hidden');
+      hearBtn.classList.remove('hidden'); againBtn.classList.remove('hidden');
+      onRecorded && onRecorded(r, status);
+      if (!r.spoke) { status.textContent = 'I didn’t hear anything. Tap Try again, and say it out loud.'; sayLines(['I didn’t hear anything. Tap Try again, and say it out loud.'], true); }
+    } catch (e) {
+      setIdle();
+      if (e && e.denied) { status.textContent = MIC_OFF_MSG; status.classList.add('warn'); recBtn.classList.add('hidden'); onUnavailable && onUnavailable(); }
+      else { status.textContent = 'Recording did not work this time. You can try again.'; }
+    }
+  };
+  recBtn.addEventListener('click', tap(() => { if (!state.micIntroSeen && !Recorder.recording) return micIntro(() => { state.micIntroSeen = true; saveState(); start(); }); start(); }));
+  againBtn.addEventListener('click', tap(() => { Speech.cancel(); Recorder.discard(); start(); }));
+  hearBtn.addEventListener('click', tap(() => {
+    if (!Recorder.url) return; hearBtn.disabled = true; status.textContent = 'First the model, then you!';
+    const after = () => Recorder.play().then(() => { hearBtn.disabled = false; status.textContent = 'That was you! Nice job practicing.'; });
+    if (Speech.available) model(after); else after();
+  }));
+  wrap.append(h('div', { class: 'row center' }, recBtn, hearBtn, againBtn), liveRow, status);
+  return wrap;
 }
 function sayIt(title, chunks, id, isWord) {
   const body = openScreen('Say It With Me', { onBack: () => practice() });
@@ -431,15 +462,21 @@ function sayIt(title, chunks, id, isWord) {
     Speech.speakChunks(seq, { rate: 0.65, onChunk: i => i < chunks.length ? hl(i) : els.forEach(e => e.classList.add('on')), onEnd: () => setTimeout(() => hl(-1), 400) });
   };
   let idx = -1;
+  const award = () => {
+    const first = !state.practice[id]; state.practice[id] = true; if (first) state.stars++; saveState(); Sound.star(); starBurst(body);
+    msg.textContent = (first ? PHRASES.saidIt[0] : PHRASES.saidIt[1]) + (first ? ' ★ +1' : ''); sayLines([first ? PHRASES.saidIt[0] : PHRASES.saidIt[1]], true);
+  };
+  const msg = h('div', { class: 'fb good' });
+  const saidBtn = h('button', { class: 'btn big saidbtn hidden', onclick: tap(award) }, 'I said it!');
+  // model for "Hear myself": the whole word (or the verse parts), highlighted, then the recording
+  const model = onEnd => { if (isWord) { els.forEach(e => e.classList.add('on')); Speech.speak(chunks.join(''), { onEnd: () => { hl(-1); onEnd(); } }); } else Speech.speakChunks(chunks, { onChunk: i => hl(i), onEnd: () => { hl(-1); onEnd(); } }); };
+  const rec = recordWidget({ model, onRecorded: r => { if (r.spoke) award(); }, onUnavailable: () => saidBtn.classList.remove('hidden') });
   body.append(h('div', { class: 'card say' }, h('h3', {}, title), h('div', { class: 'chunks' + (isWord ? ' word' : '') }, els),
     h('div', { class: 'muted center' }, 'Listen, then say it with me. Whispering counts too!'),
     h('div', { class: 'row center' }, h('button', { class: 'speak big', html: SPK + '<span>Hear it slowly</span>', onclick: tap(play) }),
       h('button', { class: 'btn big', onclick: tap(() => { idx = (idx + 1) % els.length; hl(idx); if (Speech.available) Speech.speakChunks([chunks[idx]], {}); }) }, 'One part at a time')),
-    h('div', { class: 'row center' }, h('button', { class: 'btn primary big', onclick: tap(() => {
-      const first = !state.practice[id]; state.practice[id] = true; if (first) state.stars++; saveState(); Sound.star(); starBurst(body);
-      msg.textContent = (first ? PHRASES.saidIt[0] : PHRASES.saidIt[1]) + (first ? ' ★ +1' : ''); sayLines([first ? PHRASES.saidIt[0] : PHRASES.saidIt[1]], true);
-    }) }, 'I said it!')), (() => { var m = h('div', { class: 'fb good' }); msg = m; return m; })()));
-  var msg;
+    rec, h('div', { class: 'row center' }, saidBtn), msg,
+    h('div', { class: 'muted small center' }, 'Recordings stay in memory only. They are never saved or sent anywhere.')));
 }
 
 // ---------------- Word Book / Virtues / Report ----------------
