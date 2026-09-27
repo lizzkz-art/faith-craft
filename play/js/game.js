@@ -543,16 +543,43 @@ function updateHUD() {
   const Q = curQ(); const tr = $('#tracker');
   $('#starcount').textContent = state.stars;
   const key = Q ? state.active + ':' + qs(state.active).step : 'explore';
-  if (!Q) { if (tr.dataset.k !== key) { tr.dataset.k = key; tr.innerHTML = `<button class="tr-say" aria-label="Hear it"><svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path fill="currentColor" d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 8v8a4.5 4.5 0 0 0 2.5-4zM14 3.2v2.1a7 7 0 0 1 0 13.4v2.1a9 9 0 0 0 0-17.6z"/></svg></button><div class="tq">Explore!</div><div class="tstep">Find a person with a gold <b>!</b> and talk to them.</div>`; } return; }
+  if (!Q) { if (tr.dataset.k !== key) { tr.dataset.k = key; tr.innerHTML = `<button class="tr-say" aria-label="Hear it"><svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path fill="currentColor" d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 8v8a4.5 4.5 0 0 0 2.5-4zM14 3.2v2.1a7 7 0 0 1 0 13.4v2.1a9 9 0 0 0 0-17.6z"/></svg></button><div class="tq">Explore!</div><div class="tstep">Find a person with a gold <b>!</b> and talk to them.</div>`; trDecorate(tr, ['Explore!', '']); trAutoShow(); } return; }
   const s = qs(state.active); const st = curStep(); const [n, c] = stepCount(st);
   const frac = (s.step + (st && st.type !== 'talk' ? n / Math.max(1, c) : 0)) / Q.steps.length;
-  if (tr.dataset.k === key && tr.querySelector('.tlist')) { const b = tr.querySelector('li.cur b'); if (b && st && st.label) b.textContent = `${st.label}: ${n}/${c}`; tr.querySelector('.tbar div').style.width = Math.round(frac * 100) + '%'; return; }
+  if (tr.dataset.k === key && tr.querySelector('.tlist')) { const b = tr.querySelector('li.cur b'); if (b && st && st.label) b.textContent = `${st.label}: ${n}/${c}`; tr.querySelector('.tbar div').style.width = Math.round(frac * 100) + '%'; trSetPill(tr, trPillText(Q, st, n, c)); return; }
   tr.dataset.k = key;
   tr.innerHTML = `<button class="tr-say" aria-label="Hear it"><svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path fill="currentColor" d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 8v8a4.5 4.5 0 0 0 2.5-4zM14 3.2v2.1a7 7 0 0 1 0 13.4v2.1a9 9 0 0 0 0-17.6z"/></svg></button><div class="tq">${Q.title}</div><ol class="tlist">${Q.steps.map((x, i) => `<li class="${i < s.step ? 'done' : i === s.step ? 'cur' : ''}"><span class="dot">${i < s.step ? '✓' : i + 1}</span><span>${x.text}${/[.!?]$/.test(x.text) ? '' : '.'}${i === s.step && x.label ? `<b class="tcount">${x.label}: ${n}/${c}</b>` : ''}</span></li>`).join('')}</ol><div class="tbar"><div style="width:${Math.round(frac * 100)}%"></div></div><button class="tr-replay" aria-label="Hear the mission again"><span aria-hidden="true">🔁</span> Hear the mission again</button>`;
+  trDecorate(tr, trPillText(Q, st, n, c)); trAutoShow();
 }
 function trackerSay() { const st = curStep(); Speech.speak(st ? st.text + '.' : 'Find a person with a gold mark, and talk to them.', {}); }
 function bumpStars() { const el = $('#stars'); el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); }
 function flashTracker() { const el = $('#tracker'); el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); }
+// ---------- Mission panel: arrow hide/show on every screen; compact one-line pill on phones ----------
+// Phones start with the pill; tablets start with the full panel. The child's arrow choice is kept for this session only (not saved).
+const trNarrowMQ = matchMedia('(max-width: 599px), (max-height: 499px)');
+const trUI = { pref: null, timer: 0 };
+const TR_SAY_SVG = '<svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path fill="currentColor" d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 8v8a4.5 4.5 0 0 0 2.5-4zM14 3.2v2.1a7 7 0 0 1 0 13.4v2.1a9 9 0 0 0 0-17.6z"/></svg>';
+function trDefaultOpen() { return trUI.pref ? trUI.pref === 'open' : !trNarrowMQ.matches; }
+function trIsOpen() { return !$('#tracker').classList.contains('tr-closed'); }
+function trSetOpen(open) { const tr = $('#tracker'); tr.classList.toggle('tr-closed', !open); tr.classList.toggle('tr-open', open); const b = tr.querySelector('.tr-open-btn'); if (b) b.setAttribute('aria-expanded', open ? 'true' : 'false'); if (open) tr.scrollTop = 0; }
+function trSettle() { clearTimeout(trUI.timer); trUI.timer = 0; trSetOpen(trDefaultOpen()); }
+function trAutoShow() { clearTimeout(trUI.timer); trUI.timer = 0; trSetOpen(true); if (!trDefaultOpen()) trUI.timer = setTimeout(trSettle, 5000); }
+function trPillText(Q, st, n, c) { if (!Q) return ['Explore!', '']; if (st && st.label) return [st.label, `${n}/${c}`]; return [st ? st.text : Q.title, Q.steps.length > 1 && st ? `${qs(state.active).step + 1}/${Q.steps.length}` : '']; }
+function trSetPill(tr, t) { const pn = tr.querySelector('.tr-pn'), pc = tr.querySelector('.tr-pc'); if (!pn) return; if (pn.textContent !== t[0]) pn.textContent = t[0]; if (pc.textContent !== t[1]) pc.textContent = t[1]; tr.querySelector('.tr-open-btn').setAttribute('aria-label', 'Show the mission: ' + t[0] + (t[1] ? ' ' + t[1] : '')); }
+function trDecorate(tr, text) {
+  const full = document.createElement('div'); full.className = 'tr-full'; full.append(...tr.childNodes);
+  tr.innerHTML = `<div class="tr-pill"><button class="tr-say" aria-label="Hear it">${TR_SAY_SVG}</button><button class="tr-open-btn" aria-label="Show the mission" aria-expanded="false"><span class="tr-arr" aria-hidden="true"></span><span class="tr-ptxt"><span class="tr-pk">Mission</span><span class="tr-pv"><span class="tr-pn"></span><span class="tr-pc"></span></span></span></button></div><button class="tr-hide" aria-label="Hide the mission"><span class="tr-arr" aria-hidden="true"></span><span class="tr-hl">Hide</span></button>`;
+  tr.append(full); trSetPill(tr, text);
+  if (!tr.classList.contains('tr-open') && !tr.classList.contains('tr-closed')) trSetOpen(trDefaultOpen());
+}
+$('#tracker').addEventListener('click', e => {
+  if (e.target.closest('.tr-open-btn')) { e.preventDefault(); Sound.unlock(); Sound.click(); trUI.pref = 'open'; clearTimeout(trUI.timer); trUI.timer = 0; trSetOpen(true); }
+  else if (e.target.closest('.tr-hide')) { e.preventDefault(); Sound.unlock(); Sound.click(); trUI.pref = trNarrowMQ.matches ? null : 'closed'; clearTimeout(trUI.timer); trUI.timer = 0; trSetOpen(false); }
+});
+// On phones, touching the world folds the open panel back into the pill.
+const trWorldTap = () => { if (trNarrowMQ.matches && trIsOpen()) { trUI.pref = null; trSettle(); } };
+$('#touchlayer').addEventListener('touchstart', trWorldTap, { passive: true }); $('#game').addEventListener('pointerdown', trWorldTap);
+trNarrowMQ.addEventListener('change', () => { if (!trUI.timer) trSettle(); });
 function updateWaypoint() {
   const t = targetPos(); const wp = $('#waypoint');
   if (!t || G.mode !== 'play') { wp.classList.add('hidden'); beacon.visible = false; return; }

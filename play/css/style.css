@@ -303,3 +303,90 @@ body.calm .tbtn.talk { animation: none; }
 #hud.uiopen #viewbtns { visibility: hidden; }
 body.tp #crosshair { display: none; }
 @media (max-height: 560px) { .viewbtn { min-height: 50px; min-width: 130px; } }
+
+/* ---------- Mission panel: arrow hide/show (all sizes) + compact phone HUD ---------- */
+#tracker .tr-pill { display: none; }
+#tracker.tr-closed .tr-full, #tracker.tr-closed .tr-hide { display: none; }
+#tracker.tr-closed .tr-pill { display: flex; }
+#tracker.tr-closed { padding: 3px 10px 3px 3px; border-radius: 28px; }
+.tr-pill { align-items: center; gap: 6px; min-width: 0; }
+.tr-pill .tr-say { float: none; margin: 0; width: 44px; height: 44px; flex: 0 0 auto; border-radius: 22px; }
+.tr-pill .tr-say svg { width: 26px; height: 26px; }
+.tr-open-btn { pointer-events: auto; position: relative; z-index: 4; flex: 1 1 auto; min-width: 0; min-height: 46px; display: flex; align-items: center; gap: 6px; border: 0; background: transparent; padding: 0 2px; margin: 0; text-align: left; font: inherit; color: inherit; cursor: pointer; }
+.tr-arr { flex: 0 0 auto; width: 28px; height: 28px; border-radius: 50%; background: #ffc629; color: #3a2a00; border: 2px solid #d19a00; display: inline-flex; align-items: center; justify-content: center; font-size: 14px; line-height: 1; }
+.tr-open-btn .tr-arr::before { content: '\25B6'; }
+.tr-hide .tr-arr::before { content: '\25C0'; }
+.tr-ptxt { display: flex; flex-direction: column; min-width: 0; line-height: 1.15; }
+.tr-pk { font-size: .7em; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #6a6152; }
+.tr-pv { display: flex; gap: .3em; font-weight: 800; white-space: nowrap; min-width: 0; }
+.tr-pn { overflow: hidden; text-overflow: ellipsis; min-width: 0; } .tr-pc { flex: 0 0 auto; color: #1f5fa8; }
+.tr-pc:empty { display: none; }
+.tr-hide { pointer-events: auto; position: absolute; z-index: 4; left: 0; top: calc(100% + 6px); min-height: 44px; min-width: 44px; padding: 4px 12px 4px 6px; border-radius: 22px; border: 3px solid #3b5e86; background: #fff; color: #1f3f66; box-shadow: 0 3px 0 #3b5e86; display: flex; align-items: center; gap: 6px; font: inherit; font-weight: 800; font-size: .9em; cursor: pointer; }
+.tr-hide .tr-arr { width: 26px; height: 26px; font-size: 12px; }
+.tr-hide:active, .tr-open-btn:active .tr-arr { transform: translateY(2px); }
+
+@media (max-width: 599px), (max-height: 499px) {
+  #tracker { max-width: min(56vw, 300px); font-size: .72em; }
+  #tracker.tr-closed { padding: 2px 10px 2px 2px; }
+  #tracker.tr-closed .tr-pv { font-size: 1.08em; letter-spacing: 0; word-spacing: 0; }
+  #tracker.tr-closed .tr-pk { letter-spacing: .04em; }
+  #tracker.tr-open { z-index: 8; max-width: none; width: min(calc(100vw - 16px - var(--sal) - var(--sar)), 440px); max-height: min(72vh, calc(100vh - 350px)); max-height: min(72dvh, calc(100dvh - 350px)); overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; pointer-events: auto; touch-action: pan-y; font-size: .8em; }
+  .tr-open-btn .tr-arr::before { content: '\25BC'; }
+  #tracker { max-width: min(60vw, 300px); }
+  .tr-pill { gap: 4px; }
+  .tr-open-btn { display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: auto auto; column-gap: 5px; row-gap: 1px; align-items: center; align-content: center; padding: 0 2px; }
+  .tr-open-btn .tr-ptxt { display: contents; }
+  .tr-open-btn .tr-arr { grid-row: 1; grid-column: 1; width: 22px; height: 22px; font-size: 10px; border-width: 2px; }
+  .tr-open-btn .tr-pk { grid-row: 1; grid-column: 2; line-height: 1; }
+  .tr-open-btn .tr-pv { grid-row: 2; grid-column: 1 / span 2; line-height: 1.15; }
+  .tr-hide .tr-arr::before { content: '\25B2'; }
+  .tr-hide { position: relative; top: auto; left: auto; display: inline-flex; margin: 0 0 6px; font-size: 1em; }
+  #topright { gap: 6px; }
+  #stars { min-height: 44px; padding: 4px 10px; display: flex; align-items: center; font-size: .82em; }
+  #btn-menu { margin: 0; min-height: 48px; min-width: 48px; padding: 2px 8px; font-size: 0; gap: 0; border-radius: 14px; }
+  #btn-menu::before { content: '\2630'; font-size: 24px; line-height: 1; }
+  #viewbtns { top: calc(62px + var(--sat)); gap: 8px; }
+  .viewbtn { min-width: 0; width: 70px; white-space: nowrap; min-height: 52px; padding: 4px 2px; border-width: 2px; border-radius: 14px; grid-template-columns: 1fr; grid-template-rows: auto auto; justify-items: center; row-gap: 1px; text-align: center; font-size: .6em; line-height: 1.1; }
+  .viewbtn .ico { grid-row: auto; font-size: 1.9em; }
+  .viewbtn .lbl, .viewbtn .lbl2 { display: none; }
+  #btn-view::after { content: 'View'; } #btn-fixview::after { content: 'Fix view'; }
+  #waypoint { top: calc(68px + var(--sat)); max-width: calc(100vw - 170px); }
+  #wp-arrow { width: 44px; height: 44px; font-size: 24px; }
+  #wp-label { max-width: calc(100vw - 170px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: .66em; letter-spacing: 0; word-spacing: 0; }
+  #toasts { top: calc(140px + var(--sat)); max-width: calc(100vw - 24px); }
+  #joy { left: calc(10px + var(--sal)); bottom: calc(76px + var(--sab)); }
+  #touchbtns { right: calc(8px + var(--sar)); bottom: calc(76px + var(--sab)); gap: 8px; }
+  .tbtn { width: 70px; height: 70px; font-size: .75em; }
+  .tbtn.talk { width: 148px; min-width: 0; height: 60px; padding: 0 8px; gap: 6px; font-size: 1em; border-width: 3px; border-radius: 20px; white-space: nowrap; overflow: hidden; }
+  .tbtn.talk .ico { font-size: 1.3em; }
+  .tbtn.talk { display: grid; grid-template-columns: auto auto; grid-template-rows: auto auto; align-content: center; justify-content: center; column-gap: 6px; line-height: 1.05; }
+  .tbtn.talk .ico { grid-row: 1 / span 2; }
+  .tbtn.talk .lbl { text-align: left; } .tbtn.talk .who { text-align: left; font-size: .62em; overflow: hidden; text-overflow: ellipsis; max-width: 90px; }
+  #hotbar { bottom: calc(8px + var(--sab)); max-width: calc(100vw - 16px - var(--sal) - var(--sar)); padding: 4px; gap: 3px; touch-action: pan-x; overscroll-behavior: contain; }
+  #hotbar .slot { width: 48px; height: 48px; touch-action: pan-x; }
+  #hotbar .slot img { width: 34px; height: 34px; }
+  #blockname { bottom: calc(70px + var(--sab)); }
+  .gobtn { left: calc(14px + var(--sal)); bottom: calc(226px + var(--sab)); width: 104px; height: 104px; font-size: 1.1em; border-width: 4px; transform: none; min-width: 0; min-height: 0; border-radius: 50%; flex-direction: column; gap: 0; padding: 0; }
+}
+@media (max-height: 499px) {
+  /* open panel sits between the left controls (Go, joystick) and the right buttons */
+  #tracker.tr-open { left: max(190px, calc(50vw - 220px)); width: min(440px, calc(100vw - 380px)); max-height: calc(100vh - 16px); max-height: calc(100dvh - 16px); }
+  #viewbtns { flex-direction: row; top: calc(62px + var(--sat)); gap: 6px; }
+  .viewbtn { width: 50px; min-height: 48px; height: 48px; padding: 2px; }
+  .viewbtn .ico { font-size: 1.7em; }
+  #btn-view::after, #btn-fixview::after { content: none; }
+  #waypoint { top: calc(64px + var(--sat)); max-width: calc(100vw - 250px); }
+  #wp-arrow { width: 40px; height: 40px; font-size: 22px; }
+  #wp-label { max-width: calc(100vw - 250px); }
+  #toasts { top: calc(140px + var(--sat)); }
+  #joy { bottom: calc(8px + var(--sab)); }
+  #touchbtns { grid-template-columns: auto auto auto; bottom: calc(8px + var(--sab)); gap: 6px; }
+  .tbtn { width: 56px; height: 56px; font-size: .68em; }
+  .tbtn.talk { grid-column: 1 / span 3; width: auto; height: 46px; font-size: .85em; border-radius: 16px; }
+  #hotbar { max-width: calc(100vw - 400px - var(--sal) - var(--sar)); padding: 3px; }
+  #hotbar .slot { width: 40px; height: 40px; }
+  #hotbar .slot img { width: 28px; height: 28px; }
+  #blockname { bottom: calc(56px + var(--sab)); }
+  .gobtn { bottom: calc(156px + var(--sab)); left: calc(14px + var(--sal)); width: 84px; height: 84px; font-size: 1em; }
+}
+@media (max-width: 380px) { #tracker.tr-closed .tr-pv { font-size: .98em; } }

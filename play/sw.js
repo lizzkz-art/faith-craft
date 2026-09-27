@@ -1,5 +1,5 @@
 // Faith Craft service worker: caches every file (including the voice recordings) so the game works fully offline.
-const VERSION = 'v3-pages-p1-6827961ea6';
+const VERSION = 'v3-pages-p1-db0b1405bd';
 const CACHE = 'faithcraft-' + VERSION;
 const AUDIO_CACHE = 'faithcraft-audio'; // voice clips are named by content, so they survive updates
 const ASSETS = [
