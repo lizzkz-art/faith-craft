@@ -147,7 +147,7 @@ function camZoom() { if (cam.zoomKey !== state.settings.zoom) { cam.zoomKey = st
 function updateCamera(dt, playing) {
   const mode = viewMode(), footY = cam.y ?? P.pos.y;
   P.pitch = clampPitch(P.pitch);
-  document.body.classList.toggle('tp', mode !== 'first');
+  document.body.classList.toggle('tp', mode !== 'first'); updateViewBtn(); // the label always shows the real mode
   if (mode === 'first') {
     camera.position.set(P.pos.x + Math.cos(P.yaw) * cam.bobX, footY + EYE + cam.bobY - cam.land, P.pos.z - Math.sin(P.yaw) * cam.bobX);
     camera.rotation.set(P.pitch, P.yaw, cam.roll); cam.dist = 0; cam.raise = 0; playerModel.visible = false; return;
@@ -157,6 +157,7 @@ function updateCamera(dt, playing) {
   // If terrain is in the way, first try raising the camera (looking down over the hill / out of a hole), then pull it in.
   let best = P.pitch, bestFree = camFreeDist(P.pitch, mode, want);
   if (bestFree < enough) for (let a = P.pitch - 0.15; a >= -1.35; a -= 0.15) { const f = camFreeDist(a, mode, want); if (f > bestFree + 0.3) { bestFree = f; best = a; if (f >= enough) break; } }
+  if (bestFree < 1.5) best = P.pitch; // raising only helps if it really gets the camera clear; never a close, steep look at the ground
   cam.raise += ((best - P.pitch) - cam.raise) * Math.min(1, dt * (best - P.pitch < cam.raise ? 10 : 2.5));
   const camPitch = P.pitch + cam.raise, free = camFreeDist(camPitch, mode, want); // the distance is always checked for the exact angle used
   const goal = Math.max(0, free - 0.1);
@@ -179,7 +180,25 @@ function pushOut() {
   moveToSafeSpot(); return true;
 }
 function inPit(x, y, z) { let walls = 0; for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (world.solid(x + dx, y + 1.2, z + dz)) walls++; return walls >= 3; }
-function isStuck() { return collides(P.pos.x, P.pos.y, P.pos.z) || inPit(P.pos.x, P.pos.y, P.pos.z) || P.pos.y < 3; }
+// Boxed in: walk outward (step up 1 like auto-jump, drop down up to 3, need 2 blocks of headroom). If he can't
+// reach anywhere at least 4 blocks away, he is enclosed (e.g. walled himself in with blocks he placed).
+function standY(x, z, yFrom) { for (let y = Math.floor(yFrom) + 1; y >= Math.floor(yFrom) - 3; y--) if (world.solid(x, y - 1, z) && !world.solid(x, y, z) && !world.solid(x, y + 1, z)) return y; return null; }
+function enclosed(px, py, pz, reach = 4, limit = 8) {
+  const sx = Math.floor(px), sz = Math.floor(pz), seen = new Set([sx + ',' + sz]), q = [[sx, sz, Math.floor(py + 0.01)]];
+  while (q.length) {
+    const [x, z, y] = q.shift();
+    if (Math.max(Math.abs(x - sx), Math.abs(z - sz)) >= reach) return false;
+    for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const nx = x + dx, nz = z + dz, k = nx + ',' + nz; if (seen.has(k) || nx < 0 || nz < 0 || nx >= W || nz >= D) continue;
+      if (Math.max(Math.abs(nx - sx), Math.abs(nz - sz)) > limit) continue;
+      let ny = standY(nx, nz, y); if (ny === null) { const b = world.get(nx, y, nz); if (b === B.WATER && !world.solid(nx, y + 1, nz)) ny = y; }
+      if (ny === null || (ny > y && world.solid(x, y + 2, z))) continue; // stepping up needs headroom to jump
+      seen.add(k); q.push([nx, nz, ny]);
+    }
+  }
+  return true;
+}
+function isStuck() { return collides(P.pos.x, P.pos.y, P.pos.z) || inPit(P.pos.x, P.pos.y, P.pos.z) || P.pos.y < 3 || enclosed(P.pos.x, P.pos.y, P.pos.z); }
 function safeColumn(x, z) {
   if (x < 1 || z < 1 || x >= W - 1 || z >= D - 1) return null;
   const t = world.top(x, z); if (world.topAny(x, z) !== t) return null; // water on top
@@ -190,19 +209,21 @@ function safeColumn(x, z) {
 }
 function moveToSafeSpot() {
   const cx = Math.floor(P.pos.x), cz = Math.floor(P.pos.z);
-  for (let r = 0; r <= 14; r++) for (let dz = -r; dz <= r; dz++) for (let dx = -r; dx <= r; dx++) {
+  for (const grassOnly of [true, false]) for (let r = 0; r <= 16; r++) for (let dz = -r; dz <= r; dz++) for (let dx = -r; dx <= r; dx++) {
     if (Math.max(Math.abs(dx), Math.abs(dz)) !== r) continue;
-    const y = safeColumn(cx + dx, cz + dz); if (y == null) continue;
-    P.pos.set(cx + dx + 0.5, y, cz + dz + 0.5); P.vel.set(0, 0, 0); cam.y = null; return true;
+    const x = cx + dx, z = cz + dz, y = safeColumn(x, z); if (y == null) continue;
+    if (grassOnly && world.get(x, y - 1, z) !== B.GRASS) continue;
+    if (enclosed(x + 0.5, y, z + 0.5)) continue; // must be really open ground, not another spot inside the box
+    P.pos.set(x + 0.5, y, z + 0.5); P.vel.set(0, 0, 0); cam.y = null; return true;
   }
   respawn(); cam.y = null; return false;
 }
 function fixView() {
   const stuck = isStuck();
-  if (stuck) moveToSafeSpot();
+  if (stuck) { const ox = P.pos.x, oz = P.pos.z; moveToSafeSpot(); const dx = P.pos.x - ox, dz = P.pos.z - oz; if (Math.hypot(dx, dz) > 0.5) P.yaw = Math.atan2(-dx, -dz); } // face away from where he was stuck
   state.settings.view = 'back'; if (state.settings.zoom === 'close') state.settings.zoom = 'normal';
   cam.pinch = 1; cam.dist = -1; cam.raise = 0; cam.land = 0; P.pitch = -0.35; P.vel.set(0, 0, 0);
-  saveState(); savePlayer(); Sound.good && Sound.good();
+  saveState(); savePlayer(); updateViewBtn(); Sound.good && Sound.good();
   UI.toast(stuck ? '🎥 View fixed! You were stuck, so you are back on the grass.' : '🎥 View fixed!');
   return stuck;
 }
@@ -211,7 +232,7 @@ function cycleView() {
   cam.dist = 0; P.pitch = clampPitch(state.settings.view === 'first' ? Math.max(P.pitch, -0.5) : P.pitch);
   saveState(); Sound.click(); UI.toast('👁️ ' + VIEW_NAMES[state.settings.view]); updateViewBtn();
 }
-function updateViewBtn() { const el = document.querySelector('#btn-view .lbl2'); if (el) el.textContent = VIEW_NAMES[viewMode()]; }
+function updateViewBtn() { const el = document.querySelector('#btn-view .lbl2'), t = VIEW_NAMES[viewMode()]; if (el && el.textContent !== t) el.textContent = t; }
 function respawn() { P.pos.set(PLACES.spawn.x, world.top(PLACES.spawn.x, PLACES.spawn.z) + 1.01, PLACES.spawn.z); P.vel.set(0, 0, 0); }
 pushOut(); // a save (or world edits) must never start him inside terrain
 
@@ -260,6 +281,9 @@ function placeBlock() {
   // don't place inside the player
   if (x + 1 > P.pos.x - PW && x < P.pos.x + PW && z + 1 > P.pos.z - PW && z < P.pos.z + PW && y + 1 > P.pos.y && y < P.pos.y + PH) return;
   const nb = BLOCK_HOTBAR[state.hotbar]; world.set(x, y, z, nb); Sound.place(KIND(nb)); popAt(x, y, z); burst(x, y, z, BCOL[nb] || 0xcccccc, 5, 1.5); hand.swing = 1;
+  const st = curStep(); if (st && st.type === 'planks' && !WOOD.has(nb) && inArkArea(x, y, z) && performance.now() - (placeBlock.hintT || -1e9) > 8000) {
+    placeBlock.hintT = performance.now(); UI.toast('🪵 Use wood blocks for the ark: Planks or Wood.'); UI.sayLines([PHRASES.woodHint]);
+  }
 }
 
 // ---------- Held block (first-person hand) ----------
@@ -367,13 +391,37 @@ const items = ITEM_DEFS.map(d => { const grp = E.buildItem(d.type); grp.visible 
 const beacon = E.buildBeacon(); beacon.visible = false; scene.add(beacon);
 const A = PLACES.ark; const arkZone = E.buildZone(A.x0, 13.02, A.z0, A.x1, 16, A.z1); arkZone.visible = false; scene.add(arkZone);
 const gapZone = E.buildZone(14, 14, 90, 15, 16, 93, 0x7fd0ff); gapZone.visible = false; scene.add(gapZone);
+// Each glowing cell shows its own state: gold = still empty, green = filled (sits on top of what he built there)
+const cellMatEmpty = new THREE.MeshBasicMaterial({ color: 0xffd84a, transparent: true, opacity: 0.55, depthWrite: false });
+const cellMatFull = new THREE.MeshBasicMaterial({ color: 0x3ddc5a, transparent: true, opacity: 0.8, depthWrite: false });
+const tileGeo = new THREE.BoxGeometry(0.86, 0.05, 0.86), cubeGeo = new THREE.BoxGeometry(1.04, 1.04, 1.04);
+const arkCells = []; for (let z = A.z0; z < A.z1; z++) for (let x = A.x0; x < A.x1; x++) { const m = new THREE.Mesh(tileGeo, cellMatEmpty); m.renderOrder = 3; m.visible = false; scene.add(m); arkCells.push({ x, z, m }); }
+const gapCells = []; for (const [x, z] of PLACES.gap) for (let y = 14; y <= 15; y++) { const m = new THREE.Mesh(cubeGeo, cellMatEmpty); m.position.set(x + 0.5, y + 0.5, z + 0.5); m.renderOrder = 3; m.visible = false; scene.add(m); gapCells.push({ x, y, z, m }); }
+function refreshCells(ark, gap) {
+  for (const c of arkCells) {
+    c.m.visible = ark; if (!ark) continue;
+    let top = 13, wood = false; for (let y = ARK_Y0; y <= ARK_Y1; y++) { const b = world.get(c.x, y, c.z); if (b !== B.AIR && b !== B.WATER) { top = y; if (WOOD.has(b) && world.edits[c.x + c.z * W + y * W * D] != null) wood = true; } }
+    c.m.material = wood ? cellMatFull : cellMatEmpty; c.m.position.set(c.x + 0.5, top + 1.03, c.z + 0.5);
+  }
+  for (const c of gapCells) { c.m.visible = gap; if (gap) { const full = world.solid(c.x, c.y, c.z); c.m.material = full ? cellMatFull : cellMatEmpty; c.m.scale.setScalar(full ? 1.0 : 0.9); } }
+}
 const rainbow = E.buildRainbow(); rainbow.position.set(60, 0, -10); rainbow.visible = !!(state.quests.noah && state.quests.noah.done); scene.add(rainbow);
 
 // ---------- Quests ----------
 const qs = id => (state.quests[id] ||= { step: 0, prog: 0, list: [], boarded: {}, done: false });
 const curQ = () => state.active ? QUESTS[state.active] : null;
 const curStep = () => { const q = curQ(); return q ? q.steps[qs(state.active).step] : null; };
-function countPlanks() { let n = 0; for (let y = 12; y < 30; y++) for (let z = A.z0; z < A.z1; z++) for (let x = A.x0; x < A.x1; x++) if (world.get(x, y, z) === B.PLANKS) n++; return n; }
+// Ark building is forgiving: ANY wood block (Planks or the log-textured "Wood" block) counts, in a glowing cell,
+// stacked on top of one, or up to 2 cells outside the glow. It is recounted from the world itself (placed blocks
+// are saved with the world), so blocks placed before an update count as soon as the game opens.
+const WOOD = new Set([B.PLANKS, B.LOG]);
+const ARK_M = 2, ARK_Y0 = 13, ARK_Y1 = 30;
+const inArkArea = (x, y, z) => x >= A.x0 - ARK_M && x < A.x1 + ARK_M && z >= A.z0 - ARK_M && z < A.z1 + ARK_M && y >= ARK_Y0 && y <= ARK_Y1;
+function countPlanks() { // only blocks he placed (world edits) count, so nearby trees or lumber never do
+  let n = 0; const WD = W * D;
+  for (const [k, b] of Object.entries(world.edits)) { if (!WOOD.has(b)) continue; const i = +k, y = Math.floor(i / WD), r = i - y * WD, z = Math.floor(r / W), x = r - z * W; if (world.get(x, y, z) === b && inArkArea(x, y, z)) n++; }
+  return n;
+}
 function countGap() { let n = 0; for (const [x, z] of PLACES.gap) for (let y = 14; y <= 15; y++) if (world.solid(x, y, z)) n++; return n; }
 function stepCount(st) { if (!st) return [0, 0]; const s = qs(state.active);
   switch (st.type) { case 'planks': return [Math.min(st.count, countPlanks()), st.count]; case 'fill': return [countGap(), st.count]; case 'talk': case 'reach': return [0, 1]; case 'share': return [s.prog, st.npcs.length]; default: return [s.prog, st.count]; } }
@@ -456,7 +504,7 @@ function questTick() {
       const eligible = st.lost ? a.id === 'lostsheep' : a.id !== 'lostsheep';
       if (!eligible) continue;
       if (!a.follow && followers.length < need && Math.hypot(P.pos.x - a.x, P.pos.z - a.z) < 2.6) { a.follow = true; followers.push(a); Sound.baa && (a.sp === 'cow' ? Sound.moo() : Sound.baa()); UI.toast(`The ${E.SPECIES[a.sp].name.toLowerCase()} is following you!`); }
-      if (a.follow && inZone(a.x, a.z, st.zone)) { a.follow = false; a.zone = st.zone; s.boarded[a.id] = st.zone; s.prog++; Sound.pickup(); saveState(); checkStep(); if (curStep() !== st) break; }
+      if (a.follow && (inZone(a.x, a.z, st.zone) || (st.zone === 'ark' && a.x >= A.x0 - 1.5 && a.x < A.x1 + 1.5 && a.z >= A.z0 - 1.5 && a.z < A.z1 + 1.5))) { a.follow = false; a.zone = st.zone; s.boarded[a.id] = st.zone; s.prog++; Sound.pickup(); saveState(); checkStep(); if (curStep() !== st) break; }
     }
   }
 }
@@ -533,7 +581,7 @@ const G = {
   mode: 'title', isTouch: () => touchMode,
   setUIOpen(v) { uiOpen = v || !$('#overlay').classList.contains('hidden') || !$('#dialog').classList.contains('hidden') || !!document.querySelector('.modal'); if (uiOpen && document.pointerLockElement) document.exitPointerLock(); hud.classList.toggle('uiopen', uiOpen); input.f = input.s = 0; input.jump = false; },
   afterScreenClose() { if (G.mode === 'title') UI.title(); else { G.setUIOpen(false); updateHUD(); } },
-  startPlay() { G.mode = 'play'; state.started = true; saveState(); hud.classList.remove('hidden'); document.body.classList.add('playing'); G.setUIOpen(false); updateHUD(); refreshMarkers(); if (!touchMode) $('#clickhint').classList.remove('hidden'); },
+  startPlay() { G.mode = 'play'; state.started = true; saveState(); hud.classList.remove('hidden'); document.body.classList.add('playing'); G.setUIOpen(false); updateHUD(); refreshMarkers(); questWorldChanged(); if (!touchMode) $('#clickhint').classList.remove('hidden'); },
   openTalk: id => openTalk(id), talkMain: id => talkTo(npcs[id]),
   fixView: () => fixView(), cycleView: () => cycleView(), viewChanged: () => { cam.dist = 0; P.pitch = clampPitch(P.pitch); updateViewBtn(); },
   isNear: id => { const n = npcs[id]; return !!n && Math.hypot(n.grp.position.x - P.pos.x, n.grp.position.z - P.pos.z) < 7; },
@@ -692,14 +740,14 @@ function frame(now) {
     const hit = !uiOpen ? raycast() : null; sel.visible = !!hit; if (hit) sel.position.set(hit.x + 0.5, hit.y + 0.5, hit.z + 0.5);
     questTick();
     const nn = nearestNPC(); const tb = $('#btn-talk'); if (nn && !uiOpen) { if (tb.dataset.n !== nn.def.id) { tb.dataset.n = nn.def.id; tb.querySelector('.who').textContent = nn.def.name; $('#interact-hint').textContent = 'Press E to talk to ' + nn.def.name + '. Press T for the Talk menu.'; } tb.classList.remove('hidden'); $('#interact-hint').classList.remove('hidden'); } else { tb.classList.add('hidden'); tb.dataset.n = ''; $('#interact-hint').classList.add('hidden'); }
-    hudT += dt; if (hudT > 0.25) { hudT = 0; updateWaypoint(); const st = curStep(); if (st && st.type !== 'talk') updateHUD(); }
+    hudT += dt; if (hudT > 0.25) { hudT = 0; updateWaypoint(); const st = curStep(); if (st && st.type !== 'talk') updateHUD(); if (st && (st.type === 'planks' || st.type === 'fill') && !uiOpen) { const [n, c] = stepCount(st); if (n >= c) checkStep(); } }
   }
   updateAnimals(dt); updateLife(dt, now); if (G.mode === 'play') updateHand(dt); else if (hand.mesh) hand.mesh.visible = false;
   waterU.uTime.value = now / 1000; waterU.uAmp.value = state.settings.calm ? 0.4 : 1;
   if (popT > 0) { popT -= dt; const k = Math.max(0, popT / 0.28); popBox.material.opacity = k * 0.9; popBox.scale.setScalar(1.0 + (1 - k) * 0.12); if (popT <= 0) popBox.visible = false; }
   updateNPCs(dt, now);
   for (const it of items) { const vis = itemActive(it); it.grp.visible = vis; if (vis) { it.y = world.top(it.x, it.z) + 1; it.grp.position.set(it.x, it.y + (calm ? 0.05 : 0.15 + Math.sin(now / 400) * 0.08), it.z); if (!calm) it.grp.rotation.y += dt; } }
-  const st = curStep(); arkZone.visible = !!(st && st.type === 'planks') || !!(st && st.type === 'lead' && st.zone === 'ark'); gapZone.visible = !!(st && st.type === 'fill');
+  const st = curStep(); arkZone.visible = !!(st && st.type === 'planks') || !!(st && st.type === 'lead' && st.zone === 'ark'); gapZone.visible = !!(st && st.type === 'fill'); if (G.mode === 'play') refreshCells(!!(st && st.type === 'planks'), gapZone.visible); else refreshCells(false, false);
   for (const c of clouds.children) { c.position.x += dt * c.userData.sp * (calm ? 0.4 : 1); if (c.position.x > 150) c.position.x = -50; }
   for (let i = parts.length - 1; i >= 0; i--) { const m = parts[i], u = m.userData; u.t -= dt; u.v.y -= 11 * dt; m.position.addScaledVector(u.v, dt); m.rotation.x += dt * 6; m.rotation.z += dt * 4; if (world.solid(m.position.x, m.position.y - 0.05, m.position.z) && u.v.y < 0) { u.v.y *= -0.3; u.v.x *= 0.6; u.v.z *= 0.6; } if (u.t < 0.2) m.scale.setScalar(u.s * Math.max(0.01, u.t / 0.2)); if (u.t <= 0) { scene.remove(m); parts.splice(i, 1); } }
   renderer.render(scene, camera);

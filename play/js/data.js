@@ -319,6 +319,7 @@ export const PHRASES = {
   retellTry: "Good try! Here is the right order.",
   stepDone: ["Step done! Nice work.", "Great! On to the next step.", "You did it! Step done."],
   missionDone: "Mission complete! Way to go!",
+  woodHint: "Use wood blocks for the ark.",
   newWords: "Here are some new words for this mission.",
   raYes: ["You read it!", "Wonderful reading!", "You did it! Great reading."],
   raTry: "Nice try! Listen, and try again.",
