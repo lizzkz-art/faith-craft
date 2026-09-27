@@ -22,7 +22,9 @@ const SKY = 0xa8d8ff; scene.background = new THREE.Color(SKY); scene.fog = new T
 const camera = new THREE.PerspectiveCamera(70, 1, 0.1, 220); camera.rotation.order = 'YXZ';
 scene.add(new THREE.HemisphereLight(0xffffff, 0x8a9a70, 2.0));
 const sun = new THREE.DirectionalLight(0xffffff, 1.4); sun.position.set(0.5, 1, 0.3); scene.add(sun);
-function resize() { const w = window.innerWidth, h = window.innerHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
+function resize() { const w = window.innerWidth, h = window.innerHeight; renderer.setSize(w, h, false); camera.aspect = w / h;
+  // landscape iPad: 72deg tall (about 95deg wide). Portrait: keep at least ~80deg across so it never feels 'up close'.
+  camera.fov = camera.aspect >= 1 ? 72 : Math.min(100, 2 * Math.atan(Math.tan(40 * Math.PI / 180) / camera.aspect) * 180 / Math.PI); camera.updateProjectionMatrix(); }
 window.addEventListener('resize', resize); resize();
 
 // clouds
@@ -61,9 +63,18 @@ world.onChange = (x, y, z) => {
   saveWorld(world.edits); questWorldChanged();
 };
 
+// ---------- Camera views: first person, behind me (default), front view ----------
+const VIEWS = ['back', 'front', 'first'];
+const VIEW_NAMES = { first: 'First person', back: 'Behind me', front: 'Front view' };
+const ZOOM = { close: 2.8, normal: 4.2, far: 6 };
+const PITCH_DOWN = -1.05; // never more than about 60 degrees down (looking straight at the ground felt "so up close")
+const viewMode = () => VIEWS.includes(state.settings.view) ? state.settings.view : 'back';
+function clampPitch(p) { const up = viewMode() === 'first' ? 1.2 : 0.6; return Math.max(PITCH_DOWN, Math.min(up, Number.isFinite(p) ? p : -0.3)); }
+
 // ---------- Player ----------
 const P = { pos: new THREE.Vector3(PLACES.spawn.x, world.top(PLACES.spawn.x, PLACES.spawn.z) + 1, PLACES.spawn.z), vel: new THREE.Vector3(), yaw: 0, pitch: -0.1, onGround: false };
-if (state.player) { P.pos.set(state.player.x, state.player.y, state.player.z); P.yaw = state.player.yaw; P.pitch = state.player.pitch; }
+if (state.player && [state.player.x, state.player.y, state.player.z].every(Number.isFinite)) { P.pos.set(Math.max(0.5, Math.min(W - 0.5, state.player.x)), Math.max(1, state.player.y), Math.max(0.5, Math.min(D - 0.5, state.player.z))); P.yaw = Number.isFinite(state.player.yaw) ? state.player.yaw : 0; P.pitch = state.player.pitch; }
+P.pitch = clampPitch(P.pitch);
 const PW = 0.3, PH = 1.7, EYE = 1.55;
 function collides(px, py, pz) {
   for (let x = Math.floor(px - PW); x <= Math.floor(px + PW); x++) for (let z = Math.floor(pz - PW); z <= Math.floor(pz + PW); z++) for (let y = Math.floor(py); y <= Math.floor(py + PH - 0.01); y++) if (world.solid(x, y, z)) return true;
@@ -72,6 +83,7 @@ function collides(px, py, pz) {
 const input = { f: 0, s: 0, jump: false };
 const keys = {};
 function updatePlayer(dt) {
+  pushOut(); // never stay inside a block (placed blocks, old saves, edits)
   const inWater = world.get(P.pos.x, P.pos.y + 0.4, P.pos.z) === B.WATER;
   let f = input.f, s = input.s;
   if (keys.KeyW || keys.ArrowUp) f += 1; if (keys.KeyS || keys.ArrowDown) f -= 1; if (keys.KeyA || keys.ArrowLeft) s -= 1; if (keys.KeyD || keys.ArrowRight) s += 1;
@@ -115,17 +127,97 @@ function updatePlayer(dt) {
   cam.amt += ((P.onGround && hs > 0.5 ? Math.min(1, hs / 4.4) : 0) - cam.amt) * Math.min(1, dt * 8);
   cam.land *= Math.exp(-dt * 9);
   cam.y = cam.y == null ? P.pos.y : (P.pos.y > cam.y ? cam.y + (P.pos.y - cam.y) * Math.min(1, dt * 14) : P.pos.y);
-  const bobY = bobOn ? Math.abs(Math.sin(cam.phase)) * 0.055 * cam.amt : 0, bobX = bobOn ? Math.sin(cam.phase) * 0.025 * cam.amt : 0;
-  camera.position.set(P.pos.x + Math.cos(P.yaw) * bobX, cam.y + EYE + bobY - cam.land, P.pos.z - Math.sin(P.yaw) * bobX);
-  camera.rotation.set(P.pitch, P.yaw, bobOn ? Math.sin(cam.phase) * 0.004 * cam.amt : 0);
+  cam.bobY = bobOn ? Math.abs(Math.sin(cam.phase)) * 0.055 * cam.amt : 0; cam.bobX = bobOn ? Math.sin(cam.phase) * 0.025 * cam.amt : 0;
+  cam.roll = bobOn ? Math.sin(cam.phase) * 0.004 * cam.amt : 0;
 }
-const cam = { phase: 0, amt: 0, land: 0, y: null };
+const cam = { phase: 0, amt: 0, land: 0, y: null, bobX: 0, bobY: 0, roll: 0, dist: 0, pinch: 1, zoomKey: null, raise: 0 };
+
+// The camera never goes inside a block: behind/front views pull in toward the player when terrain is in the way.
+const playerModel = E.buildPlayer(); playerModel.visible = false; scene.add(playerModel);
+const camTarget = new THREE.Vector3(), camDir = new THREE.Vector3();
+function camFree(x, y, z) { const r = 0.24; for (const dx of [-r, r]) for (const dy of [-r, r]) for (const dz of [-r, r]) if (world.solid(x + dx, y + dy, z + dz)) return false; return true; }
+function camFreeDist(pitch, mode, want) { // how far the camera can sit from his head at this angle without touching a block
+  const cp = Math.cos(pitch), sp = Math.sin(pitch), fx = -Math.sin(P.yaw) * cp, fz = -Math.cos(P.yaw) * cp; // where he is looking
+  if (mode === 'back') camDir.set(-fx, -sp, -fz); else camDir.set(fx, -sp, fz); // behind him / in front of him, raised when looking down
+  let free = 0; if (!camFree(camTarget.x, camTarget.y, camTarget.z)) return 0;
+  for (let d = 0.1; d <= want + 1e-6; d += 0.1) { if (!camFree(camTarget.x + camDir.x * d, camTarget.y + camDir.y * d, camTarget.z + camDir.z * d)) break; free = d; }
+  return free;
+}
+function camZoom() { if (cam.zoomKey !== state.settings.zoom) { cam.zoomKey = state.settings.zoom; cam.pinch = 1; } return Math.max(2, Math.min(8, (ZOOM[state.settings.zoom] || ZOOM.normal) * cam.pinch)); }
+function updateCamera(dt, playing) {
+  const mode = viewMode(), footY = cam.y ?? P.pos.y;
+  P.pitch = clampPitch(P.pitch);
+  document.body.classList.toggle('tp', mode !== 'first');
+  if (mode === 'first') {
+    camera.position.set(P.pos.x + Math.cos(P.yaw) * cam.bobX, footY + EYE + cam.bobY - cam.land, P.pos.z - Math.sin(P.yaw) * cam.bobX);
+    camera.rotation.set(P.pitch, P.yaw, cam.roll); cam.dist = 0; cam.raise = 0; playerModel.visible = false; return;
+  }
+  camTarget.set(P.pos.x, footY + 1.75, P.pos.z);
+  const want = camZoom(), enough = Math.min(want, 2.4);
+  // If terrain is in the way, first try raising the camera (looking down over the hill / out of a hole), then pull it in.
+  let best = P.pitch, bestFree = camFreeDist(P.pitch, mode, want);
+  if (bestFree < enough) for (let a = P.pitch - 0.15; a >= -1.35; a -= 0.15) { const f = camFreeDist(a, mode, want); if (f > bestFree + 0.3) { bestFree = f; best = a; if (f >= enough) break; } }
+  cam.raise += ((best - P.pitch) - cam.raise) * Math.min(1, dt * (best - P.pitch < cam.raise ? 10 : 2.5));
+  const camPitch = P.pitch + cam.raise, free = camFreeDist(camPitch, mode, want); // the distance is always checked for the exact angle used
+  const goal = Math.max(0, free - 0.1);
+  cam.dist = !(cam.dist >= 0) || goal < cam.dist ? goal : cam.dist + (goal - cam.dist) * Math.min(1, dt * 3); // snap in, ease back out
+  camera.position.set(camTarget.x + camDir.x * cam.dist, camTarget.y + camDir.y * cam.dist, camTarget.z + camDir.z * cam.dist);
+  camera.rotation.set(camPitch, mode === 'back' ? P.yaw : P.yaw + Math.PI, 0);
+  // his character: faces where he walks, swings arms and legs, head tilts with the look
+  playerModel.visible = playing && cam.dist > 0.9;
+  playerModel.position.set(P.pos.x, footY, P.pos.z); playerModel.rotation.y = P.yaw + Math.PI;
+  const U = playerModel.userData, sw = Math.sin(cam.phase) * 0.7 * cam.amt, calm = state.settings.calm;
+  U.legL.rotation.x = sw; U.legR.rotation.x = -sw; U.armL.rotation.x = -sw * 0.8; U.armR.rotation.x = sw * 0.8 - (hand.swing > 0 ? Math.sin(hand.swing * Math.PI) * 1.2 : 0);
+  U.armL.rotation.z = -0.04 - (calm ? 0 : Math.sin(performance.now() / 900) * 0.02); U.armR.rotation.z = 0.04;
+  U.head.rotation.x = -P.pitch * 0.5; U.rig.position.y = Math.abs(Math.sin(cam.phase)) * 0.05 * cam.amt;
+}
+
+// ---------- Getting un-stuck ----------
+function pushOut() {
+  if (!collides(P.pos.x, P.pos.y, P.pos.z)) return false;
+  for (let dy = 0; dy <= 3; dy++) { const y = Math.floor(P.pos.y) + dy; if (!collides(P.pos.x, y, P.pos.z)) { P.pos.y = y; P.vel.y = 0; cam.y = null; return true; } }
+  moveToSafeSpot(); return true;
+}
+function inPit(x, y, z) { let walls = 0; for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (world.solid(x + dx, y + 1.2, z + dz)) walls++; return walls >= 3; }
+function isStuck() { return collides(P.pos.x, P.pos.y, P.pos.z) || inPit(P.pos.x, P.pos.y, P.pos.z) || P.pos.y < 3; }
+function safeColumn(x, z) {
+  if (x < 1 || z < 1 || x >= W - 1 || z >= D - 1) return null;
+  const t = world.top(x, z); if (world.topAny(x, z) !== t) return null; // water on top
+  if (world.solid(x, t + 1, z) || world.solid(x, t + 2, z) || world.solid(x, t + 3, z)) return null;
+  const b = world.get(x, t, z); if (b === B.LEAVES || b === B.GLASS) return null;
+  for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (world.top(x + dx, z + dz) > t + 1) return null; // no walls to climb
+  return t + 1;
+}
+function moveToSafeSpot() {
+  const cx = Math.floor(P.pos.x), cz = Math.floor(P.pos.z);
+  for (let r = 0; r <= 14; r++) for (let dz = -r; dz <= r; dz++) for (let dx = -r; dx <= r; dx++) {
+    if (Math.max(Math.abs(dx), Math.abs(dz)) !== r) continue;
+    const y = safeColumn(cx + dx, cz + dz); if (y == null) continue;
+    P.pos.set(cx + dx + 0.5, y, cz + dz + 0.5); P.vel.set(0, 0, 0); cam.y = null; return true;
+  }
+  respawn(); cam.y = null; return false;
+}
+function fixView() {
+  const stuck = isStuck();
+  if (stuck) moveToSafeSpot();
+  state.settings.view = 'back'; if (state.settings.zoom === 'close') state.settings.zoom = 'normal';
+  cam.pinch = 1; cam.dist = -1; cam.raise = 0; cam.land = 0; P.pitch = -0.35; P.vel.set(0, 0, 0);
+  saveState(); savePlayer(); Sound.good && Sound.good();
+  UI.toast(stuck ? '🎥 View fixed! You were stuck, so you are back on the grass.' : '🎥 View fixed!');
+  return stuck;
+}
+function cycleView() {
+  const i = VIEWS.indexOf(viewMode()); state.settings.view = VIEWS[(i + 1) % VIEWS.length];
+  cam.dist = 0; P.pitch = clampPitch(state.settings.view === 'first' ? Math.max(P.pitch, -0.5) : P.pitch);
+  saveState(); Sound.click(); UI.toast('👁️ ' + VIEW_NAMES[state.settings.view]); updateViewBtn();
+}
+function updateViewBtn() { const el = document.querySelector('#btn-view .lbl2'); if (el) el.textContent = VIEW_NAMES[viewMode()]; }
 function respawn() { P.pos.set(PLACES.spawn.x, world.top(PLACES.spawn.x, PLACES.spawn.z) + 1.01, PLACES.spawn.z); P.vel.set(0, 0, 0); }
-if (collides(P.pos.x, P.pos.y, P.pos.z)) P.pos.y = world.top(P.pos.x, P.pos.z) + 1.01;
+pushOut(); // a save (or world edits) must never start him inside terrain
 
 // ---------- Raycast ----------
 function raycast(maxD = 6) {
-  const o = camera.position, dir = new THREE.Vector3(0, 0, -1).applyEuler(camera.rotation);
+  const o = new THREE.Vector3(P.pos.x, (cam.y ?? P.pos.y) + EYE, P.pos.z), dir = new THREE.Vector3(0, 0, -1).applyEuler(new THREE.Euler(P.pitch, P.yaw, 0, 'YXZ'));
   let x = Math.floor(o.x), y = Math.floor(o.y), z = Math.floor(o.z);
   const sx = Math.sign(dir.x), sy = Math.sign(dir.y), sz = Math.sign(dir.z);
   const tdx = Math.abs(1 / dir.x), tdy = Math.abs(1 / dir.y), tdz = Math.abs(1 / dir.z);
@@ -182,7 +274,7 @@ function handGeo(bid) {
 function updateHand(dt) {
   const bid = BLOCK_HOTBAR[state.hotbar];
   if (hand.id !== bid) { if (hand.mesh) { camera.remove(hand.mesh); hand.mesh.geometry.dispose(); } hand.mesh = new THREE.Mesh(handGeo(bid), handMat); hand.mesh.scale.setScalar(touchMode ? 0.1 : 0.12); camera.add(hand.mesh); hand.id = bid; hand.swing = Math.max(hand.swing, 0.5); }
-  hand.mesh.visible = G.mode === 'play' && !uiOpen;
+  hand.mesh.visible = G.mode === 'play' && !uiOpen && viewMode() === 'first';
   hand.swing = Math.max(0, hand.swing - dt * 4.5); const sw = Math.sin(hand.swing * Math.PI);
   const bx = Math.sin(cam.phase) * 0.018 * cam.amt, by = -Math.abs(Math.cos(cam.phase)) * 0.014 * cam.amt;
   const baseX = touchMode ? 0.26 : 0.38, baseY = touchMode ? -0.26 : -0.3;
@@ -443,6 +535,7 @@ const G = {
   afterScreenClose() { if (G.mode === 'title') UI.title(); else { G.setUIOpen(false); updateHUD(); } },
   startPlay() { G.mode = 'play'; state.started = true; saveState(); hud.classList.remove('hidden'); document.body.classList.add('playing'); G.setUIOpen(false); updateHUD(); refreshMarkers(); if (!touchMode) $('#clickhint').classList.remove('hidden'); },
   openTalk: id => openTalk(id), talkMain: id => talkTo(npcs[id]),
+  fixView: () => fixView(), cycleView: () => cycleView(), viewChanged: () => { cam.dist = 0; P.pitch = clampPitch(P.pitch); updateViewBtn(); },
   isNear: id => { const n = npcs[id]; return !!n && Math.hypot(n.grp.position.x - P.pos.x, n.grp.position.z - P.pos.z) < 7; },
   toTitle() { G.mode = 'title'; hud.classList.add('hidden'); document.body.classList.remove('playing'); savePlayer(); UI.title(); },
 };
@@ -459,6 +552,7 @@ addEventListener('keydown', e => {
   if (e.code === 'KeyE') { const n = nearestNPC(); if (n) talkTo(n); }
   if (e.code === 'KeyT') { const n = nearestNPC(); if (n) openTalk(n.def.id); }
   if (e.code === 'Escape' || e.code === 'KeyM') UI.pauseMenu();
+  if (e.code === 'KeyV' || e.code === 'F5') { e.preventDefault(); cycleView(); }
   if (e.code === 'Space') { e.preventDefault(); input.jumpQ = true; }
 });
 addEventListener('keyup', e => { keys[e.code] = false; });
@@ -471,30 +565,36 @@ canvas.addEventListener('mousedown', e => {
   if (e.button === 0) breakBlock(); else if (e.button === 2) placeBlock();
 });
 canvas.addEventListener('contextmenu', e => e.preventDefault());
-addEventListener('mousemove', e => { if (document.pointerLockElement !== canvas || uiOpen) return; const s = 0.0025 * state.settings.sens; P.yaw -= e.movementX * s; P.pitch = Math.max(-1.5, Math.min(1.5, P.pitch - e.movementY * s)); });
+addEventListener('mousemove', e => { if (document.pointerLockElement !== canvas || uiOpen) return; const s = 0.0025 * state.settings.sens; P.yaw -= e.movementX * s; P.pitch = clampPitch(P.pitch - e.movementY * s); });
 addEventListener('wheel', e => { if (G.mode === 'play' && !uiOpen) selectSlot(state.hotbar + (e.deltaY > 0 ? 1 : -1)); }, { passive: true });
 document.addEventListener('pointerlockchange', () => { if (!document.pointerLockElement && G.mode === 'play' && !uiOpen && !touchMode) { $('#clickhint').classList.remove('hidden'); UI.pauseMenu(); } });
 
 // Touch: joystick (left), look (right), tap to interact
-const joy = $('#joy'), knob = $('#joy-knob'); let joyId = null, joyC = null, lookId = null, lookLast = null, lookStart = null;
+const joy = $('#joy'), knob = $('#joy-knob'); let joyId = null, joyC = null, lookId = null, lookLast = null, lookStart = null; const pinch = { a: null, b: null, d0: 1, z0: 1 };
 const layer = $('#touchlayer');
 layer.addEventListener('touchstart', e => {
   e.preventDefault(); Sound.unlock(); if (!touchMode) setTouch(true);
   for (const t of e.changedTouches) {
     if (t.clientX < innerWidth * 0.4 && joyId === null) { joyId = t.identifier; joyC = { x: t.clientX, y: t.clientY }; joy.style.left = (t.clientX - 70) + 'px'; joy.style.top = (t.clientY - 70) + 'px'; joy.classList.add('active'); knob.style.transform = 'translate(0,0)'; }
-    else if (lookId === null) { lookId = t.identifier; lookLast = { x: t.clientX, y: t.clientY }; lookStart = { x: t.clientX, y: t.clientY, t: performance.now() }; }
+    else if (lookId === null && pinch.a === null) { lookId = t.identifier; lookLast = { x: t.clientX, y: t.clientY }; lookStart = { x: t.clientX, y: t.clientY, t: performance.now() }; }
+    else if (lookId !== null && pinch.a === null && t.clientX >= innerWidth * 0.4) { // second finger on the look side: pinch to zoom
+      const o = [...e.touches].find(q => q.identifier === lookId); if (o) { pinch.a = lookId; pinch.b = t.identifier; pinch.d0 = Math.max(20, Math.hypot(o.clientX - t.clientX, o.clientY - t.clientY)); pinch.z0 = cam.pinch; lookId = null; lookStart = null; }
+    }
   }
 }, { passive: false });
 layer.addEventListener('touchmove', e => {
   e.preventDefault();
+  if (pinch.a !== null) { const a = [...e.touches].find(q => q.identifier === pinch.a), b = [...e.touches].find(q => q.identifier === pinch.b);
+    if (a && b) { const d = Math.max(20, Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY)); const base = ZOOM[state.settings.zoom] || ZOOM.normal; cam.pinch = Math.max(2 / base, Math.min(8 / base, pinch.z0 * pinch.d0 / d)); } }
   for (const t of e.changedTouches) {
     if (t.identifier === joyId) { let dx = t.clientX - joyC.x, dy = t.clientY - joyC.y; const d = Math.hypot(dx, dy), m = 60; if (d > m) { dx *= m / d; dy *= m / d; } knob.style.transform = `translate(${dx}px,${dy}px)`; input.s = dx / m; input.f = -dy / m; }
-    if (t.identifier === lookId) { const s = 0.006 * state.settings.sens; P.yaw -= (t.clientX - lookLast.x) * s; P.pitch = Math.max(-1.5, Math.min(1.5, P.pitch - (t.clientY - lookLast.y) * s)); lookLast = { x: t.clientX, y: t.clientY }; }
+    if (t.identifier === lookId) { const s = 0.006 * state.settings.sens; P.yaw -= (t.clientX - lookLast.x) * s; P.pitch = clampPitch(P.pitch - (t.clientY - lookLast.y) * s); lookLast = { x: t.clientX, y: t.clientY }; }
   }
 }, { passive: false });
 const tend = e => {
   for (const t of e.changedTouches) {
     if (t.identifier === joyId) { joyId = null; input.f = input.s = 0; joy.classList.remove('active'); knob.style.transform = 'translate(0,0)'; }
+    if (t.identifier === pinch.a || t.identifier === pinch.b) { pinch.a = pinch.b = null; }
     if (t.identifier === lookId) { lookId = null; if (lookStart && performance.now() - lookStart.t < 300 && Math.hypot(t.clientX - lookStart.x, t.clientY - lookStart.y) < 12) tapAt(t.clientX, t.clientY); }
   }
 };
@@ -505,6 +605,8 @@ holdBtn('#btn-break', () => { if (!uiOpen) breakBlock(); });
 holdBtn('#btn-place', () => { if (!uiOpen) placeBlock(); });
 holdBtn('#btn-talk', () => { const n = nearestNPC(); if (n && !uiOpen) openTalk(n.def.id); });
 function openTalk(id) { Sound.click(); UI.talkPanel(id, { onMain: () => talkTo(npcs[id]) }); }
+const hudTap = (sel, fn) => { const b = $(sel); b.addEventListener('touchstart', e => { e.stopPropagation(); }, { passive: true }); b.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); Sound.unlock(); if (G.mode === 'play' && !uiOpen) fn(); }); };
+hudTap('#btn-view', cycleView); hudTap('#btn-fixview', fixView); updateViewBtn();
 $('#btn-menu').addEventListener('click', e => { e.preventDefault(); Sound.unlock(); Sound.click(); UI.pauseMenu(); });
 $('#tracker').addEventListener('click', e => { if (e.target.closest('.tr-say')) { e.preventDefault(); trackerSay(); } else if (e.target.closest('.tr-replay') && state.active && !uiOpen) { e.preventDefault(); Sound.unlock(); Sound.click(); Speech.speak(TALK.labels.replay, { voice: 'n', onEnd: () => UI.replayMission(state.active) }); } });
 document.addEventListener('gesturestart', e => e.preventDefault());
@@ -517,8 +619,8 @@ function entBox(e) {
   if (e.kind === 'animal') { const p = e.grp.position, hh = E.SPECIES[e.sp].h; return tmpBox.set(tmpV.set(p.x - 0.7, p.y, p.z - 0.7), new THREE.Vector3(p.x + 0.7, p.y + hh, p.z + 0.7)); }
   if (e.kind === 'item') { if (!e.grp.visible) return null; return tmpBox.set(tmpV.set(e.x - 0.5, e.y, e.z - 0.5), new THREE.Vector3(e.x + 0.5, e.y + 0.9, e.z + 0.5)); }
 }
-function pickWithRay() { let best = null; for (const e of entityList) { const b = entBox(e); if (!b) continue; const hit = ray.ray.intersectBox(b, new THREE.Vector3()); if (hit) { const d = hit.distanceTo(ray.ray.origin); if (d < 8 && (!best || d < best.d)) best = { e, d }; } } return best; }
-function pickEntityCenter() { ray.setFromCamera({ x: 0, y: 0 }, camera); return pickWithRay(); }
+function pickWithRay() { let best = null; for (const e of entityList) { const b = entBox(e); if (!b) continue; const hit = ray.ray.intersectBox(b, new THREE.Vector3()); if (hit) { const d = hit.distanceTo(ray.ray.origin); if (d < 8 + cam.dist && (!best || d < best.d)) best = { e, d }; } } return best; }
+function pickEntityCenter() { ray.ray.origin.set(P.pos.x, (cam.y ?? P.pos.y) + EYE, P.pos.z); ray.ray.direction.set(0, 0, -1).applyEuler(new THREE.Euler(P.pitch, P.yaw, 0, 'YXZ')); return pickWithRay(); }
 function tapAt(x, y) {
   if (uiOpen || G.mode !== 'play') return;
   ray.setFromCamera({ x: (x / innerWidth) * 2 - 1, y: -(y / innerHeight) * 2 + 1 }, camera);
@@ -583,9 +685,10 @@ function frame(now) {
   if (G.mode === 'title') {
     titleT += dt * (calm ? 0.03 : 0.06);
     camera.position.set(52 + Math.cos(titleT) * 34, 34, 56 + Math.sin(titleT) * 34); camera.lookAt(56, 16, 52);
-    sel.visible = false;
+    sel.visible = false; playerModel.visible = false;
   } else {
-    if (!uiOpen) updatePlayer(dt); else { camera.position.set(P.pos.x, (cam.y ?? P.pos.y) + EYE, P.pos.z); camera.rotation.set(P.pitch, P.yaw, 0); }
+    if (!uiOpen) updatePlayer(dt); else pushOut();
+    updateCamera(dt, true);
     const hit = !uiOpen ? raycast() : null; sel.visible = !!hit; if (hit) sel.position.set(hit.x + 0.5, hit.y + 0.5, hit.z + 0.5);
     questTick();
     const nn = nearestNPC(); const tb = $('#btn-talk'); if (nn && !uiOpen) { if (tb.dataset.n !== nn.def.id) { tb.dataset.n = nn.def.id; tb.querySelector('.who').textContent = nn.def.name; $('#interact-hint').textContent = 'Press E to talk to ' + nn.def.name + '. Press T for the Talk menu.'; } tb.classList.remove('hidden'); $('#interact-hint').classList.remove('hidden'); } else { tb.classList.add('hidden'); tb.dataset.n = ''; $('#interact-hint').classList.add('hidden'); }

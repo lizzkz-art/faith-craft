@@ -1,5 +1,5 @@
 const KEY = 'faithcraft.state.v1', WKEY = 'faithcraft.world.v1';
-export const DEFAULT_SETTINGS = { name: 'Friend', music: true, musicVol: 0.4, bob: true, helperCheck: false, calm: false, sound: true, rate: 0.9, autoRead: true, sens: 1, font: 'lexend', textSize: 1, spacing: true, cream: true, difficulty: 2, autoLevel: true, pin: null, autoJump: true };
+export const DEFAULT_SETTINGS = { name: 'Friend', music: true, musicVol: 0.4, bob: true, helperCheck: false, calm: false, sound: true, rate: 0.9, autoRead: true, sens: 1, font: 'lexend', textSize: 1, spacing: true, cream: true, difficulty: 2, autoLevel: true, pin: null, autoJump: true, view: 'back', zoom: 'normal' };
 function fresh() { return { v: 1, settings: { ...DEFAULT_SETTINGS }, stars: 0, xp: 0, quests: {}, active: null, badges: {}, words: {}, quiz: {}, practice: {}, player: null, hotbar: 0, started: false }; }
 export let state = fresh();
 export function loadState() {

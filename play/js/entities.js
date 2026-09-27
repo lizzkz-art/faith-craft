@@ -145,3 +145,35 @@ export function buildRainbow() {
   cols.forEach((c, i) => { const t = new THREE.Mesh(new THREE.TorusGeometry(70 - i * 2.2, 1.1, 6, 48, Math.PI), new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0.75, fog: false, depthWrite: false })); g.add(t); });
   return g;
 }
+
+// ---------- The player's own character (seen in the behind and front views) ----------
+// Blocky kid: brown hair, teal shirt with short sleeves, blue jeans, dark shoes. Faces +z like the NPCs.
+export function buildPlayer() {
+  const skin = '#e3a97e', hair = '#5a3818', shirt = '#2bb3a3', shirt2 = '#1f8f82', jeans = '#3a5da8', shoe = '#3b2d24';
+  const grp = new THREE.Group(), rig = new THREE.Group(); grp.add(rig);
+  const body = mergeBoxes([
+    [0.54, 0.66, 0.3, 0, 1.04, 0, shirt],             // shirt
+    [0.55, 0.08, 0.31, 0, 0.72, 0, shirt2],           // shirt hem
+    [0.2, 0.06, 0.02, 0, 1.34, 0.152, skin],          // neckline (front)
+    [0.2, 0.2, 0.02, 0, 1.05, 0.155, '#ffd84a'],      // little star on the front
+  ]);
+  const NY = 1.37;
+  const head = mergeBoxes([
+    [0.5, 0.5, 0.5, 0, 0.25, 0, skin],
+    [0.52, 0.14, 0.52, 0, 0.47, 0, hair],             // hair top
+    [0.52, 0.44, 0.08, 0, 0.29, -0.23, hair],          // hair back (what you see in the behind view)
+    [0.08, 0.26, 0.44, -0.235, 0.35, -0.03, hair], [0.08, 0.26, 0.44, 0.235, 0.35, -0.03, hair], // sides
+    [0.5, 0.08, 0.06, 0, 0.42, 0.24, hair],            // fringe
+    [0.1, 0.1, 0.02, -0.11, 0.27, 0.255, '#ffffff'], [0.1, 0.1, 0.02, 0.11, 0.27, 0.255, '#ffffff'],
+    [0.06, 0.07, 0.021, -0.1, 0.26, 0.262, '#2a4a8a'], [0.06, 0.07, 0.021, 0.12, 0.26, 0.262, '#2a4a8a'],
+    [0.06, 0.05, 0.03, 0, 0.19, 0.262, '#d9976f'],      // nose
+    [0.14, 0.035, 0.02, 0, 0.1, 0.255, '#b04a3e'], [0.035, 0.035, 0.02, -0.085, 0.118, 0.255, '#b04a3e'], [0.035, 0.035, 0.02, 0.085, 0.118, 0.255, '#b04a3e'], // smile
+  ]); head.position.y = NY;
+  const armGeo = [[0.18, 0.24, 0.2, 0, -0.1, 0, shirt], [0.16, 0.42, 0.18, 0, -0.42, 0, skin]];
+  const armL = mergeBoxes(armGeo), armR = mergeBoxes(armGeo); armL.position.set(-0.36, 1.34, 0); armR.position.set(0.36, 1.34, 0);
+  const legGeo = [[0.24, 0.58, 0.26, 0, -0.29, 0, jeans], [0.25, 0.12, 0.32, 0, -0.64, 0.03, shoe]];
+  const legL = mergeBoxes(legGeo), legR = mergeBoxes(legGeo); legL.position.set(-0.13, 0.7, 0); legR.position.set(0.13, 0.7, 0);
+  rig.add(body, head, armL, armR, legL, legR);
+  grp.userData = { rig, head, armL, armR, legL, legR };
+  return grp;
+}

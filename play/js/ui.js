@@ -563,7 +563,7 @@ export function settingsGate(then) {
 export function settings() {
   const s = state.settings; const body = openScreen('Settings', { onBack: backToMenu });
   const tog = (label, key, after) => h('label', { class: 'set' }, h('span', {}, label), (() => { const i = h('input', { type: 'checkbox' }); i.checked = !!s[key]; i.addEventListener('change', () => { s[key] = i.checked; saveState(); applySettings(); after && after(); }); return i; })());
-  const sel = (label, key, opts, num) => h('label', { class: 'set' }, h('span', {}, label), (() => { const e = h('select', {}, opts.map(([v, t]) => { const o = h('option', { value: v }, t); if (String(s[key]) === String(v)) o.selected = true; return o; })); e.addEventListener('change', () => { s[key] = num ? Number(e.value) : e.value; if (key === 'difficulty') { state.levelBoost = 0; state.streak = 0; } saveState(); applySettings(); }); return e; })());
+  const sel = (label, key, opts, num) => h('label', { class: 'set' }, h('span', {}, label), (() => { const e = h('select', {}, opts.map(([v, t]) => { const o = h('option', { value: v }, t); if (String(s[key]) === String(v)) o.selected = true; return o; })); e.addEventListener('change', () => { s[key] = num ? Number(e.value) : e.value; if (key === 'difficulty') { state.levelBoost = 0; state.streak = 0; } saveState(); applySettings(); if ((key === 'view' || key === 'zoom') && G.viewChanged) G.viewChanged(); }); return e; })());
   const range = (label, key, min, max, step) => h('label', { class: 'set' }, h('span', {}, label), (() => { const e = h('input', { type: 'range', min, max, step }); e.value = s[key]; e.addEventListener('input', () => { s[key] = Number(e.value); saveState(); applySettings(); }); return e; })());
   const nameIn = h('input', { type: 'text', maxlength: '20', value: playerName(), class: 'nameinput' }); nameIn.addEventListener('change', () => { s.name = nameIn.value.trim().replace(/\s+.*/, '').slice(0, 20) || 'Friend'; nameIn.value = s.name; saveState(); });
   body.append(
@@ -578,6 +578,9 @@ export function settings() {
     tog('Extra letter and line spacing', 'spacing'), tog('Cream background behind text', 'cream'),
     h('h3', {}, 'Play'),
     tog('Calm mode (less motion, softer sounds)', 'calm'), tog('Sound effects', 'sound'), tog('Background music', 'music'), range('Music volume', 'musicVol', 0, 1, 0.05),
+    sel('Camera view', 'view', [['back', 'Behind me (see my character)'], ['front', 'Front view (camera looks at me)'], ['first', 'First person (through my eyes)']]),
+    sel('Camera distance', 'zoom', [['close', 'Close'], ['normal', 'Normal'], ['far', 'Far']]),
+    G.mode === 'play' ? h('div', { class: 'set' }, h('span', {}, 'Camera stuck or too close?'), h('button', { class: 'btn', onclick: tap(() => { closeScreen(true); G.setUIOpen(false); G.fixView(); }) }, '🎥 Fix my view')) : null,
     tog('Gentle head bob when walking', 'bob'), tog('Auto-jump up single blocks', 'autoJump'),
     range('Look sensitivity', 'sens', 0.4, 2, 0.1),
     h('h3', {}, 'Parent'),
@@ -749,7 +752,7 @@ export function title() {
 export function pauseMenu() {
   const body = openScreen('Menu', { onBack: () => closeScreen(), backLabel: '‹ Back to game' });
   const b = (t, f, cls = 'big') => h('button', { class: 'btn ' + cls, onclick: tap(f) }, t);
-  body.append(h('div', { class: 'menu-grid wide' }, b('Resume', () => closeScreen(), 'primary big'), b('Word Games', gamesHub), b('Read It Aloud', readAloud), b('Say It With Me', () => practice()),
+  body.append(h('div', { class: 'menu-grid wide' }, b('Resume', () => closeScreen(), 'primary big'), b('🎥 Fix my view', () => { closeScreen(); G.fixView(); }, 'big fixview'), b('Word Games', gamesHub), b('Read It Aloud', readAloud), b('Say It With Me', () => practice()),
     b('Word Book', wordBook), b('Virtues', journal), b('Report Card', reportCard), b('How to Play', howTo), b('Settings', () => settingsGate(settings)), b('Title screen', () => { G.toTitle(); })));
 }
 export function howTo() {
@@ -758,8 +761,8 @@ export function howTo() {
   const sec = (t, lines) => h('div', { class: 'card' }, h('h3', {}, t), lines.map(l => readable(l, { cls: 'small' }).row));
   body.append(
     sec('Your goal', ['Help people from Bible stories. Look for a gold ! above a person and talk to them.', 'The arrow at the top always points to your next step. The list shows every step.']),
-    touch ? sec('iPad controls', ['Left thumb: drag to walk.', 'Right side: drag to look around.', 'Buttons: Jump, Break, and Place. Tap a block in the bar to choose it.', 'Tap a person, or tap the Talk button when you are close.'])
-      : sec('Keyboard and mouse', ['W A S D or arrow keys: walk. Space: jump.', 'Click the game to look with the mouse. Left click: break. Right click: place.', 'Number keys: choose a block. E: talk. Esc: menu.']),
+    touch ? sec('iPad controls', ['Left thumb: drag to walk.', 'Right side: drag to look around. Pinch with two fingers to move the camera closer or farther.', 'Change view: see your character from behind, from the front, or look through your own eyes.', 'Fix my view: tap it any time the camera is stuck or too close.', 'Buttons: Jump, Break, and Place. Tap a block in the bar to choose it.', 'Tap a person, or tap the Talk button when you are close.'])
+      : sec('Keyboard and mouse', ['W A S D or arrow keys: walk. Space: jump.', 'Click the game to look with the mouse. Left click: break. Right click: place.', 'Number keys: choose a block. E: talk. V: change view. Esc: menu.']),
     sec('Reading', ['Tap any word to hear it and see what it means.', 'Tap a speaker button to hear text read aloud.', 'After each mission there is a short Story Check. Word Games help with spelling and sounds.']));
 }
 export function initUI(api) { G = api; Speech.onChange(() => applySettings()); applySettings(); }
