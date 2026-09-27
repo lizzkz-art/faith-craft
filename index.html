@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Faith Craft · A free Bible adventure that practices reading skills</title>
+<meta name="description" content="Faith Craft is a free, offline, block-building Bible adventure for iPad that practices reading skills. No ads, no chat, no purchases, no accounts.">
+<meta property="og:title" content="Faith Craft: a free Bible adventure that practices reading skills">
+<meta property="og:description" content="Build Noah's ark, help David, and meet Jesus's friends. Every story is read aloud, word by word. No ads. No chat. Works offline.">
+<meta property="og:image" content="assets/shots/20-villager-waves.jpg">
+<link rel="icon" href="assets/icon-512.png">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<style>
+@font-face{font-family:Lexend;src:url(assets/fonts/lexend-latin-400-normal.woff2) format("woff2");font-display:swap}
+@font-face{font-family:Lexend;font-weight:700;src:url(assets/fonts/lexend-latin-700-normal.woff2) format("woff2");font-display:swap}
+@font-face{font-family:OpenDyslexic;src:url(assets/fonts/opendyslexic-latin-400-normal.woff2) format("woff2");font-display:swap}
+@font-face{font-family:OpenDyslexic;font-weight:700;src:url(assets/fonts/opendyslexic-latin-700-normal.woff2) format("woff2");font-display:swap}
+:root{--ink:#1d2b3a;--green:#2f6f3a;--grass:#7cc26b;--gold:#f5b700;--cream:#fffaf0;--sky:#a9d9ff}
+*{box-sizing:border-box}
+body{margin:0;font-family:Lexend,system-ui,sans-serif;color:var(--ink);background:var(--cream);line-height:1.6;letter-spacing:.02em;word-spacing:.08em;font-size:19px}
+body.od{font-family:OpenDyslexic,Lexend,sans-serif;font-size:17px}
+a{color:var(--green)}
+.wrap{max-width:1080px;margin:0 auto;padding:0 22px}
+header.hero{background:linear-gradient(180deg,#8fcdff 0%,#d8efff 60%,var(--cream) 100%);padding:28px 0 70px;position:relative;overflow:hidden}
+header.hero:after{content:"";position:absolute;left:0;right:0;bottom:0;height:26px;background:linear-gradient(var(--grass) 0 9px,#9a6b3f 9px)}
+nav{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.logo{display:flex;align-items:center;gap:12px;font-weight:700;font-size:24px;text-decoration:none;color:var(--ink)}
+.logo img{width:48px;height:48px;border-radius:12px}
+.fontbtn{font:inherit;font-size:15px;background:#fff;border:2px solid var(--ink);border-radius:30px;padding:6px 14px;cursor:pointer}
+.herogrid{display:grid;grid-template-columns:1fr 1.15fr;gap:38px;align-items:center;margin-top:34px}
+h1{font-size:64px;line-height:1.05;margin:0;color:#fff;-webkit-text-stroke:3px var(--green);paint-order:stroke fill;text-shadow:0 5px 0 var(--green)}
+.tag{font-size:24px;font-weight:700;margin:16px 0 8px}
+.pills{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 24px;padding:0;list-style:none}
+.pills li{background:#fff;border:2px solid var(--ink);border-radius:30px;padding:4px 14px;font-weight:700;font-size:16px}
+.play{display:inline-block;background:var(--green);color:#fff;text-decoration:none;font-weight:700;font-size:28px;padding:18px 40px;border-radius:60px;box-shadow:0 7px 0 #1f4f28;transition:transform .1s}
+.play:active{transform:translateY(4px);box-shadow:0 3px 0 #1f4f28}
+.play:focus-visible{outline:4px solid var(--gold);outline-offset:4px}
+.sub{font-size:15px;margin-top:14px;color:#3b5566}
+.shot{width:100%;border-radius:22px;border:8px solid #fff;box-shadow:0 14px 30px rgba(30,60,90,.25);display:block}
+section{padding:60px 0}
+h2{font-size:38px;margin:0 0 20px;line-height:1.2}
+.gallery{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.gallery figure{margin:0;background:#fff;border-radius:18px;padding:8px;box-shadow:0 4px 14px rgba(30,60,90,.14)}
+.gallery img{width:100%;border-radius:12px;display:block;aspect-ratio:3/2;object-fit:cover;object-position:top}
+.gallery figcaption{font-weight:700;text-align:center;padding:8px 4px 4px;font-size:17px}
+.features{display:grid;grid-template-columns:repeat(2,1fr);gap:18px}
+.feat{background:#fff;border-radius:18px;padding:20px 22px;border:3px solid #e9dfc8}
+.feat h3{margin:0 0 6px;font-size:21px}
+.feat p{margin:0}
+.missions{columns:2;padding-left:22px;margin:10px 0 0}
+.parents{background:#eef7e9}
+.privacy{background:#e7f2fb}
+.box{background:#fff;border:3px solid var(--ink);border-radius:22px;padding:26px 30px;box-shadow:0 7px 0 var(--ink)}
+.box ul{margin:8px 0 0;padding-left:22px}
+.steps{counter-reset:s;list-style:none;padding:0;display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+.steps li{background:#fff;border-radius:18px;padding:18px;border:3px solid #e9dfc8;position:relative;padding-top:52px}
+.steps li:before{counter-increment:s;content:counter(s);position:absolute;top:12px;left:16px;width:32px;height:32px;border-radius:50%;background:var(--gold);font-weight:700;display:flex;align-items:center;justify-content:center}
+.story{font-size:22px;font-weight:700;color:var(--green);text-align:center;font-style:italic}
+footer{background:#9a6b3f;color:#fff;padding:26px 0;font-size:15px;text-align:center}
+footer a{color:#fff}
+mark{background:#ffe066;padding:0 6px;border-radius:6px}
+@media (max-width:820px){.herogrid{grid-template-columns:1fr}h1{font-size:50px}.gallery{grid-template-columns:1fr 1fr}.features{grid-template-columns:1fr}.steps{grid-template-columns:1fr 1fr}.missions{columns:1}}
+@media (max-width:520px){.gallery{grid-template-columns:1fr}.steps{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header class="hero">
+  <div class="wrap">
+    <nav><a class="logo" href="#"><img src="assets/icon-512.png" alt="">Faith Craft</a>
+      <button class="fontbtn" id="fontbtn" type="button" aria-pressed="false">Try the OpenDyslexic font</button></nav>
+    <div class="herogrid">
+      <div>
+        <h1>Faith Craft</h1>
+        <p class="tag">A free block-building Bible adventure that practices reading skills.</p>
+        <p>Build Noah’s ark. Help David. Meet Jesus’s friends. Every story is <mark>read aloud, word by word</mark>.</p>
+        <ul class="pills"><li>Free</li><li>No ads</li><li>No chat</li><li>Works offline</li><li>Made for iPad</li></ul>
+        <a class="play" href="play/">▶&nbsp; Play Faith Craft</a>
+        <p class="sub">Free for every family. No sign-up. Opens right in the browser.</p>
+      </div>
+      <img class="shot" src="assets/shots/20-villager-waves.jpg" alt="A friendly villager waves hello in the block world of Faith Craft">
+    </div>
+  </div>
+</header>
+
+<main>
+<section id="screens">
+  <div class="wrap">
+    <h2>Take a look</h2>
+    <div class="gallery">
+      <figure><img src="assets/shots/03-building-the-ark.jpg" alt="Building Noah's ark with blocks" loading="lazy"><figcaption>Build Noah’s ark</figcaption></figure>
+      <figure><img src="assets/shots/02-npc-talking-read-along.jpg" alt="Noah talks while the words are highlighted" loading="lazy"><figcaption>Words light up as they are read</figcaption></figure>
+      <figure><img src="assets/shots/05-moral-choice.jpg" alt="Choosing to help the hurt traveler" loading="lazy"><figcaption>Kind choices</figcaption></figure>
+      <figure><img src="assets/shots/09-phonics-r-blends-answered.jpg" alt="A phonics game" loading="lazy"><figcaption>Phonics games</figcaption></figure>
+      <figure><img src="assets/shots/07-story-check-grade.jpg" alt="A story check with a grade and stars" loading="lazy"><figcaption>Story checks with grades and stars</figcaption></figure>
+      <figure><img src="assets/shots/19-mission-complete.jpg" alt="Mission complete celebration" loading="lazy"><figcaption>Mission complete!</figcaption></figure>
+    </div>
+  </div>
+</section>
+
+<section id="features">
+  <div class="wrap">
+    <h2>What’s inside</h2>
+    <div class="features">
+      <div class="feat"><h3>7 Bible missions</h3><p>Explore a friendly block world and help Bible friends:</p>
+        <ul class="missions"><li>Noah’s ark</li><li>David the shepherd</li><li>Moses</li><li>The Good Samaritan</li><li>Loaves and fish</li><li>Joseph forgives his brothers</li><li>Honesty</li></ul></div>
+      <div class="feat"><h3>Stories read aloud</h3><p>A warm, natural voice reads every story, and each word is highlighted as it is spoken.</p></div>
+      <div class="feat"><h3>Phonics and reading games</h3><p>Short phonics and reading-comprehension games with grades and stars.</p></div>
+      <div class="feat"><h3>Bonus stars for reading aloud</h3><p>Kids can read words and sentences out loud to earn extra stars.</p></div>
+      <div class="feat"><h3>Easy-to-read text</h3><p>A dyslexia-friendly font, big text, and extra spacing. Difficulty from 1st to 3rd grade reading.</p></div>
+      <div class="feat"><h3>Strictly clean</h3><p>No violence and no romance. Just building, exploring, and kind choices.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="parents" class="parents">
+  <div class="wrap">
+    <h2>For parents</h2>
+    <div class="box">
+      <p><b>Faith Craft practices reading skills</b> while your child plays. It is a game and reading practice, not a medical or therapy product.</p>
+      <ul>
+        <li><b>Parent report card:</b> see reading level, stars, words learned, and skill scores.</li>
+        <li><b>Grades and stars</b> after each phonics game and story check.</li>
+        <li><b>Adjustable difficulty</b> from 1st to 3rd grade reading.</li>
+        <li><b>Nothing to buy.</b> No ads, no purchases, no chat with strangers.</li>
+      </ul>
+    </div>
+    <p class="story" style="margin-top:34px">Made by a mom for her son who loves the Bible and is learning to read.</p>
+  </div>
+</section>
+
+<section id="privacy" class="privacy">
+  <div class="wrap">
+    <h2>Privacy</h2>
+    <div class="box">
+      <p><b>Faith Craft collects no information about your child.</b></p>
+      <ul>
+        <li><b>No data collected.</b> Progress is saved only on your own iPad.</li>
+        <li><b>No accounts</b> and no sign-up.</li>
+        <li><b>No ads</b>, no trackers, and no purchases.</li>
+        <li><b>No chat.</b> Your child cannot talk to strangers.</li>
+        <li><b>Works offline.</b> Once it is on your iPad, it does not need the internet.</li>
+      </ul>
+      <p style="margin-bottom:0">This page uses no cookies, analytics, or outside services.</p>
+    </div>
+  </div>
+</section>
+
+<section id="install">
+  <div class="wrap">
+    <h2>Add to Home Screen on iPad</h2>
+    <p>Put Faith Craft on your iPad like an app, so it opens full screen and works offline.</p>
+    <ol class="steps">
+      <li>Open this page in <b>Safari</b> on the iPad.</li>
+      <li>Tap <b>Play Faith Craft</b> and wait for the game to load.</li>
+      <li>Tap the <b>Share</b> button (the square with an arrow pointing up).</li>
+      <li>Tap <b>Add to Home Screen</b>, then <b>Add</b>. Look for the ark icon!</li>
+    </ol>
+    <p style="text-align:center;margin-top:34px"><a class="play" href="play/">▶&nbsp; Play Faith Craft</a></p>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">Faith Craft is free for every family. Bible text: World English Bible (British Edition), public domain.<br>No ads · No chat · No purchases · No accounts · Works offline</div>
+</footer>
+<script>
+  // Optional font switch (remembered on this device only).
+  var b = document.getElementById('fontbtn');
+  function set(on){ document.body.classList.toggle('od', on); b.setAttribute('aria-pressed', on); b.textContent = on ? 'Use the Lexend font' : 'Try the OpenDyslexic font'; }
+  try { set(localStorage.getItem('fc-site-od') === '1'); } catch (e) {}
+  b.addEventListener('click', function(){ var on = !document.body.classList.contains('od'); set(on); try { localStorage.setItem('fc-site-od', on ? '1' : '0'); } catch (e) {} });
+</script>
+</body>
+</html>

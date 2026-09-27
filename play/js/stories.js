@@ -1,0 +1,161 @@
+// Story Check content. Each story has 3 pages (same pictures at every level).
+// Level 1 = 1st grade reading, 2 = 2nd grade, 3 = 3rd grade + bigger vocabulary (read aloud).
+// Question: s = skill (elements | main | wh | vocab), lv = lowest level it appears at,
+// a = answer, w = 3 wrong answers (Easy/Medium use the first 2), p = pictures {answer: icon}
+const q = (s, lv, text, a, w, p) => ({ s, lv, q: text, a, w, p: p || {} });
+export const SKILLS = {
+  vowel: 'Vowel Teams (ai/ay, ee/ea)', diph: 'Diphthongs (oi/oy, ou/ow)', rblend: 'R-Blends', sight: 'Sight Words',
+  syll: 'Syllables (multisyllabic words)', bd: 'Letters b and d', elements: 'Story Elements', main: 'Main Idea',
+  wh: 'Wh- Questions (who/what/where/why)', retell: 'Retell / Sequencing', vocab: 'Vocabulary',
+};
+export const SKILL_ORDER = ['vowel', 'diph', 'rblend', 'sight', 'syll', 'bd', 'elements', 'main', 'wh', 'retell', 'vocab'];
+
+export const STORIES = {
+  noah: {
+    pics: [['face:noah', 'ark'], ['sheep', 'cow', 'ark'], ['rainbow']],
+    pages: {
+      1: ["God told Noah to make a big boat.", "The animals came two by two.", "God put a rainbow in the sky."],
+      2: ["God told Noah to build an ark. An ark is a big boat.", "The animals came to the ark two by two. Noah and his family were safe inside.", "Then God put a rainbow in the sky. It was a sign of His promise."],
+      3: ["God told Noah to build an ark, a huge wooden boat. Noah chose to obey, even when it was hard work.", "The animals came to the ark in pairs. Noah’s family and the animals stayed safe inside during the flood.", "After the flood, God set a rainbow in the cloud. It was the sign of His covenant, a promise God always keeps."],
+    },
+    qs: [
+      q('elements', 1, "Who is the main character in this story?", "Noah", ["David", "Joseph", "Moses"], { Noah: 'face:noah', David: 'face:david', Joseph: 'face:joseph', Moses: 'face:moses' }),
+      q('elements', 1, "Where did the animals go?", "Into the ark", ["Up a mountain", "Into a house", "Into a cave"], { "Into the ark": 'ark', "Up a mountain": 'mountain', "Into a house": 'house', "Into a cave": 'stones' }),
+      q('elements', 2, "What happened at the beginning?", "God told Noah to build an ark.", ["God put a rainbow in the sky.", "The animals came two by two.", "Noah went to sleep."], { "God told Noah to build an ark.": 'ark', "God put a rainbow in the sky.": 'rainbow', "The animals came two by two.": 'sheep' }),
+      q('elements', 1, "What happened at the end?", "God put a rainbow in the sky.", ["Noah built a house.", "The animals ran away.", "Noah went fishing."], { "God put a rainbow in the sky.": 'rainbow', "Noah built a house.": 'house', "The animals ran away.": 'cow' }),
+      q('main', 1, "What is the main idea of this story?", "Noah obeyed God, and God kept His promise.", ["Noah liked big boats.", "It rained one day.", "Sheep are soft."]),
+      q('wh', 2, "Why did Noah build the ark?", "God told him to.", ["He wanted to go fishing.", "He was bored.", "His friends asked him."]),
+      q('vocab', 1, "What is an ark?", "A big boat", ["A bird", "A hill", "A song"], { "A big boat": 'ark', "A bird": 'dove', "A hill": 'mountain' }),
+      q('vocab', 3, "What does “covenant” mean?", "A serious promise", ["A big storm", "A kind of tent", "A wooden boat"]),
+      q('wh', 3, "What did the rainbow remind Noah of?", "That God keeps His promises", ["That it would rain again", "That he needed paint", "That the ark was broken"]),
+    ],
+    retell: { cards: [{ pic: 'ark', text: "Noah built the ark." }, { pic: 'sheep', text: "The animals came two by two." }, { pic: 'rainbow', text: "God put a rainbow in the sky." }],
+      because: { q: "Why did God put a rainbow in the sky?", a: "Because it was a sign of His promise.", w: ["Because Noah wanted colors.", "Because it was a party."] } },
+  },
+  david: {
+    pics: [['face:david', 'sheep'], ['heart'], ['brook', 'stones']],
+    pages: {
+      1: ["David was a shepherd. He kept sheep.", "David had to be brave. He trusted God.", "David got five smooth stones from a brook."],
+      2: ["David was a shepherd. He took care of his dad’s sheep.", "One day David had a big problem. Other men were afraid, but David trusted God.", "David picked five smooth stones from the brook. He put them in his bag."],
+      3: ["David was a young shepherd who took care of his father’s sheep. Out in the fields, he learned to trust God.", "One day everyone else was afraid, but David showed courage. He knew God was with him.", "David chose five smooth stones from the brook and put them in the pouch of his shepherd’s bag."],
+    },
+    qs: [
+      q('elements', 1, "Who is the main character in this story?", "David", ["Noah", "Andrew", "Micah"], { David: 'face:david', Noah: 'face:noah', Andrew: 'face:andrew', Micah: 'face:micah' }),
+      q('elements', 1, "Where did David find the stones?", "In a brook", ["In a house", "On a boat", "In the desert"], { "In a brook": 'brook', "In a house": 'house', "On a boat": 'ark', "In the desert": 'desert' }),
+      q('elements', 2, "What happened at the beginning?", "David took care of sheep.", ["David got five stones.", "David built a boat.", "David baked bread."], { "David took care of sheep.": 'sheep', "David got five stones.": 'stones', "David built a boat.": 'ark' }),
+      q('elements', 1, "What did David do at the end?", "He picked five smooth stones.", ["He went to sleep.", "He sailed a boat.", "He climbed a tree."], { "He picked five smooth stones.": 'stones', "He went to sleep.": 'house', "He sailed a boat.": 'ark' }),
+      q('main', 1, "What is the main idea of this story?", "David was brave because he trusted God.", ["David liked rocks.", "Sheep need water.", "David was very tall."]),
+      q('wh', 2, "Why was David brave?", "He trusted that God was with him.", ["He was the tallest man.", "He was not paying attention.", "Someone gave him a prize."]),
+      q('vocab', 1, "What is a shepherd?", "A person who takes care of sheep", ["A person who bakes bread", "A person who builds boats", "A person who sings"], { "A person who takes care of sheep": 'sheep', "A person who bakes bread": 'bread', "A person who builds boats": 'ark' }),
+      q('vocab', 3, "What does “courage” mean?", "Doing what is right even when you feel afraid", ["Never feeling afraid", "Being very strong", "Running away fast"]),
+      q('wh', 3, "What did David put the stones in?", "His shepherd’s bag", ["A basket of bread", "A clay jar", "His shoe"]),
+    ],
+    retell: { cards: [{ pic: 'sheep', text: "David took care of sheep." }, { pic: 'heart', text: "David chose to trust God." }, { pic: 'stones', text: "David picked five stones." }],
+      because: { q: "Why was David brave?", a: "Because he trusted God.", w: ["Because he was tall.", "Because he was bored."] } },
+  },
+  moses: {
+    pics: [['face:moses', 'heart'], ['mountain'], ['tablets']],
+    pages: {
+      1: ["Moses said, “I am slow to speak.” God said, “I will help you.”", "God told Moses to go up a mountain.", "God gave Moses two stone tablets."],
+      2: ["Moses told God that he was slow of speech. God said, “I will be with your mouth.”", "Later God called Moses to come up the mountain. Moses climbed up high.", "God gave Moses stone tablets with His rules. God’s rules show us how to live."],
+      3: ["When God called Moses, Moses worried that he was slow of speech. God promised, “I will be with your mouth.”", "Later God said, “Come up to me on the mountain.” Moses climbed Mount Sinai.", "God gave Moses stone tablets with His commandments. God’s Word shows us the right way to live."],
+    },
+    qs: [
+      q('elements', 1, "Who is the main character in this story?", "Moses", ["Joseph", "David", "Noah"], { Moses: 'face:moses', Joseph: 'face:joseph', David: 'face:david', Noah: 'face:noah' }),
+      q('elements', 1, "Where did Moses go?", "Up a mountain", ["Into a boat", "Into a village", "Down a well"], { "Up a mountain": 'mountain', "Into a boat": 'ark', "Into a village": 'house', "Down a well": 'jar' }),
+      q('elements', 2, "What happened at the beginning?", "Moses said he was slow to speak.", ["God gave Moses tablets.", "Moses climbed the mountain.", "Moses ate bread."], { "Moses said he was slow to speak.": 'face:moses', "God gave Moses tablets.": 'tablets', "Moses climbed the mountain.": 'mountain' }),
+      q('elements', 1, "What did God give Moses at the end?", "Two stone tablets", ["A boat", "A sheep", "A crown"], { "Two stone tablets": 'tablets', "A boat": 'ark', "A sheep": 'sheep', "A crown": 'crown' }),
+      q('main', 1, "What is the main idea of this story?", "God helped Moses and gave him His rules.", ["Mountains are tall.", "Moses liked rocks.", "Moses was always happy."]),
+      q('wh', 2, "What did God promise Moses?", "“I will be with your mouth.”", ["“You will be a king.”", "“You will never talk.”", "“You will get a boat.”"]),
+      q('vocab', 1, "What is a tablet in this story?", "A flat stone with words on it", ["A small computer", "A pill", "A bowl"], { "A flat stone with words on it": 'tablets' }),
+      q('vocab', 3, "What is a commandment?", "A rule God gave us", ["A kind of mountain", "A loud song", "A long trip"]),
+      q('wh', 3, "Why did God give His commandments?", "To show us the right way to live", ["To make life boring", "To keep them secret", "To build a house"]),
+    ],
+    retell: { cards: [{ pic: 'face:moses', text: "Moses said he was slow to speak." }, { pic: 'mountain', text: "Moses climbed the mountain." }, { pic: 'tablets', text: "God gave Moses the tablets." }],
+      because: { q: "Why could Moses do this hard job?", a: "Because God was with him.", w: ["Because it was easy.", "Because he was a king."] } },
+  },
+  samaritan: {
+    pics: [['face:traveler', 'road'], ['face:priest', 'road'], ['heart', 'bandage', 'house']],
+    pages: {
+      1: ["A man was hurt on the road.", "Two men saw him. They did not help.", "A kind man stopped. He helped the hurt man."],
+      2: ["Jesus told a story. A man was hurt and lay by the road.", "A priest walked past him. Then a Levite walked past him too.", "A Samaritan stopped to help. He cleaned the man’s cuts and took him to an inn."],
+      3: ["Jesus told a story about a traveler who was hurt and left lying by the road.", "A priest passed by on the other side. A Levite, who helped at the temple, also passed by.", "Then a Samaritan came. He felt compassion, bandaged the man’s wounds, and took care of him at an inn."],
+    },
+    qs: [
+      q('elements', 1, "Who stopped to help the hurt man?", "The Samaritan", ["The priest", "A king", "Nobody"], { "The Samaritan": 'heart', "The priest": 'face:priest', "A king": 'crown' }),
+      q('elements', 1, "Where was the hurt man?", "By the road", ["On a boat", "On a mountain", "In the desert"], { "By the road": 'road', "On a boat": 'ark', "On a mountain": 'mountain', "In the desert": 'desert' }),
+      q('elements', 2, "What happened at the beginning?", "A man was hurt on the road.", ["The man went to an inn.", "A Samaritan helped.", "The man ate bread."], { "A man was hurt on the road.": 'road', "The man went to an inn.": 'house', "A Samaritan helped.": 'heart' }),
+      q('elements', 1, "What happened at the end?", "The Samaritan helped the man.", ["Everyone walked past.", "The man went fishing.", "It began to rain."], { "The Samaritan helped the man.": 'bandage' }),
+      q('main', 1, "What is the main idea of this story?", "Be kind and help people in need.", ["Roads are long.", "Walk fast past people.", "Only help your friends."]),
+      q('wh', 2, "Who told this story?", "Jesus", ["Noah", "David", "Moses"], { Jesus: 'heart' }),
+      q('vocab', 1, "What is a neighbor in Jesus’ story?", "Anyone who needs your help", ["Only the person next door", "A kind of road", "A big house"]),
+      q('vocab', 3, "What does “compassion” mean?", "Caring about someone’s trouble and wanting to help", ["Being proud", "Walking a long way", "Feeling sleepy"]),
+      q('wh', 3, "Why did the Samaritan stop?", "He felt compassion for the hurt man.", ["He was lost.", "He wanted a reward.", "He was tired."]),
+    ],
+    retell: { cards: [{ pic: 'road', text: "A man was hurt on the road." }, { pic: 'face:priest', text: "Two men walked past him." }, { pic: 'bandage', text: "A Samaritan stopped and helped." }],
+      because: { q: "Why did the Samaritan help?", a: "Because he cared about the hurt man.", w: ["Because he was paid.", "Because he was lost."] } },
+  },
+  loaves: {
+    pics: [['crowd'], ['bread', 'fish'], ['basket']],
+    pages: {
+      1: ["A big crowd came to see Jesus. They were hungry.", "A boy had five loaves and two fish.", "Jesus shared the food. All the people ate."],
+      2: ["A big crowd came to hear Jesus teach. Soon the people were hungry.", "Andrew found a boy with five loaves of bread and two fish.", "Jesus thanked God and shared the food. Everyone ate, and twelve baskets were left!"],
+      3: ["A huge crowd followed Jesus to hear Him teach. Soon everyone was hungry, and there was no food.", "Andrew said, “There is a boy here who has five barley loaves and two fish.”", "Jesus gave thanks and shared the food. Everyone ate, and twelve baskets of pieces were left over."],
+    },
+    qs: [
+      q('elements', 1, "Who shared the food with the crowd?", "Jesus", ["A king", "Noah", "Joseph"], { Jesus: 'heart', "A king": 'crown', Noah: 'face:noah', Joseph: 'face:joseph' }),
+      q('elements', 1, "What food did the boy have?", "Five loaves and two fish", ["Ten apples", "One cake", "A jar of milk"], { "Five loaves and two fish": 'bread', "A jar of milk": 'jar' }),
+      q('elements', 2, "What happened at the beginning?", "A big crowd was hungry.", ["Twelve baskets were left.", "Everyone ate.", "The boy went home."], { "A big crowd was hungry.": 'crowd', "Twelve baskets were left.": 'basket' }),
+      q('elements', 1, "What happened at the end?", "Everyone ate, and food was left over.", ["The people stayed hungry.", "The boy ate it all.", "The fish swam away."], { "Everyone ate, and food was left over.": 'basket' }),
+      q('main', 1, "What is the main idea of this story?", "God can do big things with what we share.", ["Fish are good food.", "Crowds are loud.", "Keep your lunch."]),
+      q('wh', 2, "How many baskets of food were left?", "Twelve", ["None", "Two", "Five"]),
+      q('vocab', 1, "What does “generous” mean?", "Happy to share and give", ["Wanting to keep everything", "Very sleepy", "Good at running"], { "Happy to share and give": 'bread' }),
+      q('vocab', 3, "What is a disciple?", "A follower who learns from a teacher", ["A kind of bread", "A big crowd", "A fishing boat"]),
+      q('wh', 3, "Why did the boy’s small gift matter so much?", "Jesus used it to feed everyone.", ["It cost a lot of money.", "Nobody was hungry.", "It was a secret."]),
+    ],
+    retell: { cards: [{ pic: 'crowd', text: "A big crowd was hungry." }, { pic: 'bread', text: "A boy shared his bread and fish." }, { pic: 'basket', text: "Everyone ate, and food was left." }],
+      because: { q: "Why was there enough food for everyone?", a: "Because Jesus blessed what the boy shared.", w: ["Because the people went shopping.", "Because the fish grew bigger."] } },
+  },
+  joseph: {
+    pics: [['face:joseph', 'desert'], ['grain', 'desert'], ['hug']],
+    pages: {
+      1: ["Joseph’s brothers were mean to him. They sent him far away.", "God was with Joseph. He saved grain in Egypt.", "His brothers came for food. Joseph forgave them."],
+      2: ["Joseph’s brothers were jealous. They sold him to men going to Egypt.", "God was with Joseph. He became a leader and saved up grain.", "When his hungry brothers came, Joseph forgave them and gave them food."],
+      3: ["Joseph’s brothers were jealous of him, so they sold him to traders going to Egypt.", "God was with Joseph. In time he became a leader in Egypt and stored grain before a famine.", "When his hungry brothers came for food, Joseph chose to forgive them and helped his whole family."],
+    },
+    qs: [
+      q('elements', 1, "Who is the main character in this story?", "Joseph", ["Moses", "Andrew", "David"], { Joseph: 'face:joseph', Moses: 'face:moses', Andrew: 'face:andrew', David: 'face:david' }),
+      q('elements', 1, "Where did Joseph become a leader?", "Egypt", ["On the ark", "On a mountain", "In a small village"], { Egypt: 'desert', "On the ark": 'ark', "On a mountain": 'mountain', "In a small village": 'house' }),
+      q('elements', 2, "What happened at the beginning?", "Joseph’s brothers sent him away.", ["Joseph forgave his brothers.", "Joseph saved grain.", "Joseph built a boat."], { "Joseph’s brothers sent him away.": 'desert', "Joseph forgave his brothers.": 'hug', "Joseph saved grain.": 'grain' }),
+      q('elements', 1, "What happened at the end?", "Joseph forgave his brothers.", ["Joseph got even.", "Joseph ran away.", "Joseph went to sleep."], { "Joseph forgave his brothers.": 'hug' }),
+      q('main', 1, "What is the main idea of this story?", "Joseph chose to forgive.", ["Egypt is hot.", "Grain is food.", "Brothers never fight."]),
+      q('wh', 2, "Why did the brothers come to Egypt?", "They needed food.", ["They wanted gold.", "They were lost.", "They came to play."], { "They needed food.": 'grain' }),
+      q('vocab', 1, "What does “forgive” mean?", "To stop holding a wrong against someone", ["To get even", "To forget your homework", "To give a gift"], { "To stop holding a wrong against someone": 'hug' }),
+      q('vocab', 3, "What is a famine?", "A time when there is not enough food", ["A big party", "A famous person", "A kind of river"]),
+      q('wh', 3, "Does forgiving mean the wrong thing was okay?", "No. It means choosing love and letting God handle it.", ["Yes. It means nothing bad happened.", "Yes. You must pretend.", "No. It means getting even later."]),
+    ],
+    retell: { cards: [{ pic: 'desert', text: "Joseph’s brothers sent him away." }, { pic: 'grain', text: "Joseph saved grain in Egypt." }, { pic: 'hug', text: "Joseph forgave his brothers." }],
+      because: { q: "Why could Joseph forgive?", a: "Because God was with him and he chose love.", w: ["Because he forgot everything.", "Because he wanted gold."] } },
+  },
+  honesty: {
+    pics: [['fence'], ['face:micah', 'heart'], ['fence', 'sheep']],
+    pages: {
+      1: ["You broke Micah’s fence by mistake.", "Micah asked what happened. You told the truth.", "You helped fix the fence. Micah was glad."],
+      2: ["You bumped Micah’s fence by mistake. A sheep got out.", "Micah asked what happened. You said, “It was me. I am sorry.”", "You brought the sheep back and fixed the fence. Micah trusted you more."],
+      3: ["While building, you bumped Micah’s fence by accident, and one of his sheep wandered away.", "When Micah asked what happened, you could hide the truth or confess. You chose to be honest.", "You brought the sheep home and repaired the fence. Being honest made your friendship stronger."],
+    },
+    qs: [
+      q('elements', 1, "Who is the farmer in this story?", "Micah", ["Noah", "Joseph", "Moses"], { Micah: 'face:micah', Noah: 'face:noah', Joseph: 'face:joseph', Moses: 'face:moses' }),
+      q('elements', 1, "What broke?", "The fence", ["The boat", "The well", "The house"], { "The fence": 'fence', "The boat": 'ark', "The well": 'jar', "The house": 'house' }),
+      q('elements', 2, "What happened at the beginning?", "The fence broke by mistake.", ["You fixed the fence.", "Micah said thank you.", "It started to rain."], { "The fence broke by mistake.": 'fence' }),
+      q('elements', 1, "What happened at the end?", "You fixed the fence.", ["You ran away.", "You blamed the sheep.", "The fence fell down."], { "You fixed the fence.": 'fence' }),
+      q('main', 1, "What is the main idea of this story?", "Tell the truth, even after a mistake.", ["Fences are made of wood.", "Sheep like grass.", "Hide your mistakes."]),
+      q('wh', 2, "How did Micah feel when you told the truth?", "He trusted you more.", ["He was angry forever.", "He moved away.", "He did not care."]),
+      q('vocab', 1, "What does “honest” mean?", "Telling the truth", ["Being very loud", "Being the fastest", "Being funny"]),
+      q('vocab', 3, "What does “confess” mean?", "To admit you did something wrong", ["To make a mess", "To win a prize", "To ask a question"]),
+      q('wh', 3, "Why can telling the truth feel hard?", "We might be afraid of getting in trouble.", ["The truth is boring.", "Lies are easy to remember.", "It is against the rules."]),
+    ],
+    retell: { cards: [{ pic: 'fence', text: "The fence broke by mistake." }, { pic: 'face:micah', text: "You told Micah the truth." }, { pic: 'sheep', text: "You fixed the fence and brought the sheep home." }],
+      because: { q: "Why did Micah trust you more?", a: "Because you told the truth.", w: ["Because you ran away.", "Because you blamed the sheep."] } },
+  },
+};

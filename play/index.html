@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Faith Craft</title>
+<meta name="description" content="A friendly block-building Bible adventure and reading game. Works offline.">
+<meta name="theme-color" content="#5aa0e0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Faith Craft">
+<meta name="format-detection" content="telephone=no">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<canvas id="game"></canvas>
+<div id="loading">Loading Faith Craft…</div>
+<div id="hud" class="hidden">
+  <div id="tracker" aria-live="polite"></div>
+  <div id="topright"><div id="stars">★ <span id="starcount">0</span></div><button id="btn-menu" class="btn" aria-label="Menu">☰ Menu</button></div>
+  <div id="waypoint" class="hidden"><div id="wp-arrow">▲</div><div id="wp-label"></div></div>
+  <div id="crosshair"></div>
+  <div id="interact-hint" class="hidden"></div>
+  <div id="clickhint" class="hidden">Click the game to look around. Esc opens the menu.</div>
+  <div id="touchlayer"></div>
+  <div id="joy"><div id="joy-knob"></div></div>
+  <div id="touchbtns">
+    <button id="btn-talk" class="tbtn talk hidden"><span>Talk</span></button>
+    <button id="btn-place" class="tbtn">Place</button>
+    <button id="btn-break" class="tbtn">Break</button>
+    <button id="btn-jump" class="tbtn jump">Jump</button>
+  </div>
+  <div id="hotbar"></div>
+  <div id="blockname"></div>
+</div>
+<div id="toasts"></div>
+<div id="dialog" class="hidden"></div>
+<div id="overlay" class="hidden"></div>
+<div id="wordpop" class="hidden"></div>
+<noscript>Faith Craft needs JavaScript turned on.</noscript>
+<script type="module" src="js/game.js"></script>
+<script>
+if ('serviceWorker' in navigator) { window.addEventListener('load', function () { navigator.serviceWorker.register('sw.js', { scope: './' }).catch(function (e) { console.warn('SW failed', e); }); }); }
+</script>
+</body>
+</html>
